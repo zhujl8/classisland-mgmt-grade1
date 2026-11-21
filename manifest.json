@@ -1,0 +1,21 @@
+{
+  "ServerKind": 0,
+  "OrganizationName": "2026级高一年级",
+  "CoreVersion": "2.0.0.0",
+  "ClassPlanSource": {
+    "Value": "https://raw.githubusercontent.com/OWNER/REPO/main/classplans/{id}.json",
+    "Version": 1
+  },
+  "TimeLayoutSource": {
+    "Value": "https://raw.githubusercontent.com/OWNER/REPO/main/timelayouts.json",
+    "Version": 1
+  },
+  "SubjectsSource": {
+    "Value": "https://raw.githubusercontent.com/OWNER/REPO/main/subjects.json",
+    "Version": 1
+  },
+  "PolicySource": {
+    "Value": "https://raw.githubusercontent.com/OWNER/REPO/main/policy.json",
+    "Version": 1
+  }
+}

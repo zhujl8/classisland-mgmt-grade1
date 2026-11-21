@@ -1,0 +1,11 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# 本地构建产生的临时元数据（包含时间戳，不入库，仅用于 Action 摘要/工件）
+data/last-update.json
+data/last-update.md
+
+# 系统杂项
+.DS_Store
+Thumbs.db

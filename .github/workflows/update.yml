@@ -1,0 +1,82 @@
+name: 更新高一课程表
+
+# 手动触发：仓库 Actions 页 → 「更新高一课程表」→ Run workflow
+# 自动定时：取消下方 on.schedule 段的注释并按需修改（GitHub cron 使用 UTC 时间）
+on:
+  workflow_dispatch:
+    inputs:
+      source_file:
+        description: 源数据文件名（源站 API 的 file 参数）
+        required: false
+        default: result_actual.json
+      force_bump:
+        description: 内容未变化时也递增版本号（强制客户端刷新）
+        type: boolean
+        required: false
+        default: false
+
+# 需要自动更新时，改为：
+# on:
+#   schedule:
+#     - cron: "30 22 * * 0"   # 每周日 22:30 UTC = 北京时间周一 06:30
+#   workflow_dispatch:
+#     inputs: （保持上面 inputs 配置不变，整块复制过来即可）
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-schedule
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 拉取源数据并生成集控档案
+        run: |
+          python scripts/build.py \
+            --source-file "${{ inputs.source_file || 'result_actual.json' }}" \
+            ${{ inputs.force_bump && '--force-bump' || '' }}
+
+      - name: 校验生成的档案
+        run: python scripts/validate.py
+
+      - name: 写入运行摘要
+        if: always()
+        run: |
+          if [ -f data/last-update.md ]; then
+            cat data/last-update.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "未生成更新摘要" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: 上传更新摘要工件
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: update-summary
+          path: |
+            data/last-update.md
+            data/last-update.json
+          if-no-files-found: ignore
+
+      - name: 提交并推送
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "课表无变化，跳过提交"
+          else
+            git commit -m "chore: 更新高一课程表档案（$(date -u +'%Y-%m-%d %H:%M UTC')）"
+            git push
+          fi

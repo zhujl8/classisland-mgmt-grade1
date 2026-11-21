@@ -1,0 +1,8 @@
+{
+  "// 说明": "构建脚本的可调参数。修改后重新运行 scripts/build.py（或触发 GitHub Action）即可生效。",
+  "source_url": "https://duanjr.site/tools/class_schedule/api/schedule?file=result_actual.json",
+  "organization_name": "2026级高一年级",
+  "core_version": "2.0.0.0",
+  "exclude_slot_patterns": ["看班"],
+  "weekday_names": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+}

@@ -1,0 +1,576 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+build.py —— 拉取课程表源数据并生成 ClassIsland 静态集控档案。
+
+数据流：
+  源站 API (duanjr.site /tools/class_schedule/api/schedule)
+      → 本脚本抓取、校验、转换
+      → subjects.json / timelayouts.json / classplans/{id}.json / presets/
+      → manifest.json（内容变化时自动递增 Version）
+      → git 提交推送 → ClassIsland 客户端按集控清单拉取
+
+零第三方依赖，仅需 Python 3.9+ 标准库。
+
+常用命令：
+  python scripts/build.py                       # 在 GitHub Actions 中运行（自动识别仓库与分支）
+  python scripts/build.py --repo 用户名/仓库名   # 本地运行（写入 raw.githubusercontent 地址）
+  python scripts/build.py --dry-run             # 只计算不写盘
+  python scripts/build.py --force-bump          # 内容未变也递增版本号
+"""
+
+import argparse
+import hashlib
+import json
+import os
+import ssl
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+import uuid
+from datetime import datetime, timedelta, timezone
+
+# ─────────────────────────── 常量 ───────────────────────────
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CONFIG_PATH = os.path.join(REPO_ROOT, "build-config.json")
+STATE_PATH = os.path.join(REPO_ROOT, "data", "state.json")
+SNAPSHOT_DIR = os.path.join(REPO_ROOT, "data", "snapshot")
+LAST_UPDATE_JSON = os.path.join(REPO_ROOT, "data", "last-update.json")
+LAST_UPDATE_MD = os.path.join(REPO_ROOT, "data", "last-update.md")
+ROSTER_MD = os.path.join(REPO_ROOT, "docs", "班级对照表.md")
+
+# ClassIsland 档案中所有 GUID 的派生命名空间（固定值，保证每次构建生成的 ID 稳定）
+GUID_NAMESPACE = uuid.UUID("6f1c1b53-2b17-4a5e-9d3a-7f0e2c8d4b21")
+ZERO_GUID = "00000000-0000-0000-0000-000000000000"
+
+# 统一 TimeLayout 的 GUID（内容变化不会改变 GUID，仅依赖 manifest 版本号刷新）
+TIME_LAYOUT_ID = str(uuid.uuid5(GUID_NAMESPACE, "grade1/timelayout"))
+
+BEIJING_TZ = timezone(timedelta(hours=8))
+
+# 课间间隔超过该分钟数时用「分割线」而不是「课间休息」
+LONG_GAP_MINUTES = 60
+
+# HTTP 抓取参数
+HTTP_TIMEOUT = 30
+HTTP_RETRIES = 3
+USER_AGENT = "ClassIsland-Mgmt-Updater/1.0 (schedule sync)"
+
+# 默认配置（build-config.json 缺省字段时使用）
+CONFIG_DEFAULTS = {
+    "source_url": "https://duanjr.site/tools/class_schedule/api/schedule?file=result_actual.json",
+    "organization_name": "2026级高一年级",
+    "core_version": "2.0.0.0",
+    "exclude_slot_patterns": ["看班"],
+    "weekday_names": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"],
+}
+
+
+# ─────────────────────────── 工具函数 ───────────────────────────
+
+
+def sha256_text(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def guid_of(*parts: str) -> str:
+    """由若干字符串稳定地派生一个 GUID。"""
+    return str(uuid.uuid5(GUID_NAMESPACE, "|".join(parts)))
+
+
+def dump_json(obj, path: str) -> None:
+    """确定性 JSON 输出：2 空格缩进、保留中文，保证重复构建无 diff 噪音。"""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        json.dump(obj, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+
+
+def load_json_file(path: str):
+    if not os.path.exists(path):
+        return None
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def load_config() -> dict:
+    cfg = dict(CONFIG_DEFAULTS)
+    file_cfg = load_json_file(CONFIG_PATH)
+    if file_cfg:
+        for key, value in file_cfg.items():
+            if key.startswith("//"):
+                continue
+            cfg[key] = value
+    return cfg
+
+
+# ─────────────────────────── 源数据抓取 ───────────────────────────
+
+
+def _attempt(url: str, verify_level: int) -> bytes:
+    """verify_level: 2=严格校验；1=校验证书链但不校验主机名（源站证书域名不匹配时使用）；0=完全跳过校验。"""
+    context = None
+    if verify_level == 1:
+        context = ssl.create_default_context()
+        context.check_hostname = False
+    elif verify_level == 0:
+        context = ssl.create_default_context()
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT, context=context) as response:
+        return response.read()
+
+
+def http_get(url: str) -> bytes:
+    """带重试的 HTTP GET。源站证书签发给 www.duanjr.site，与访问域名不一致时自动降级校验级别。"""
+    last_error = None
+    for attempt in range(1, HTTP_RETRIES + 1):
+        for level, hint in ((2, "严格校验"), (1, "校验证书链（不校验主机名）"), (0, "跳过证书校验")):
+            try:
+                return _attempt(url, level)
+            except urllib.error.HTTPError as error:
+                if error.code in (403, 404):
+                    raise RuntimeError(
+                        f"源站返回 HTTP {error.code}：{url}\n"
+                        "请检查 build-config.json 中 source_url 的 file 参数对应的文件是否存在。"
+                    ) from error
+                last_error = error
+                break  # HTTP 状态码错误与证书无关，直接进入下一次重试
+            except Exception as error:  # noqa: BLE001（SSL/网络类错误，降级后再试）
+                last_error = error
+                if level > 0:
+                    print(f"HTTPS {hint}失败（{error}），降级重试……")
+        if attempt < HTTP_RETRIES:
+            print(f"抓取失败（第 {attempt}/{HTTP_RETRIES} 次），3 秒后重试……")
+            time.sleep(3)
+    raise RuntimeError(f"无法抓取源数据：{last_error}\n"
+                       "提示：已自动尝试跳过证书校验仍失败，请检查网络能否访问源站（可用浏览器打开 source_url 验证）。")
+
+
+def resolve_source_url(base_url: str, source_file: str) -> str:
+    """把 --source-file 参数替换进 source_url 的 file 查询参数。"""
+    parsed = urllib.parse.urlsplit(base_url)
+    query = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
+    query = [(key, value) for key, value in query if key != "file"]
+    query.append(("file", source_file))
+    return urllib.parse.urlunsplit(parsed._replace(query=urllib.parse.urlencode(query)))
+
+
+def fetch_source(source_url: str, source_file: str) -> dict:
+    url = resolve_source_url(source_url, source_file) if source_file else source_url
+    print(f"抓取源数据：{url}")
+    raw = http_get(url)
+    try:
+        data = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise RuntimeError(f"源数据不是合法的 UTF-8 JSON：{error}") from error
+
+    # 结构校验
+    for key in ("title", "days", "slots", "times", "schedule"):
+        if key not in data:
+            raise RuntimeError(f"源数据缺少字段 {key!r}，请确认数据源格式未变化。")
+    schedule = data["schedule"]
+    if not isinstance(schedule, dict) or not schedule:
+        raise RuntimeError("源数据 schedule 为空。")
+    slots, times, days = data["slots"], data["times"], data["days"]
+    if len(times) != len(slots):
+        raise RuntimeError(f"源数据 times({len(times)}) 与 slots({len(slots)}) 数量不一致。")
+    for cid, grid in schedule.items():
+        if len(grid) != len(days):
+            raise RuntimeError(f"班级 {cid} 的天数 {len(grid)} 与 days({len(days)}) 不一致。")
+        for day_index, row in enumerate(grid):
+            if len(row) != len(slots):
+                raise RuntimeError(f"班级 {cid} 第 {day_index + 1} 天的节次数与 slots 不一致。")
+    print(f"源数据校验通过：{data.get('title', '')}，{len(schedule)} 个班，{len(days)} 天 × {len(slots)} 节。")
+    return data
+
+
+# ─────────────────────────── 时间解析 ───────────────────────────
+
+
+def parse_hhmm(text: str):
+    """'07:30-08:15' → ('07:30:00', '08:15:00')；非法格式抛错。"""
+    parts = str(text).strip().split("-")
+    if len(parts) != 2:
+        raise ValueError(f"无法解析时间段：{text!r}")
+    start, end = parts[0].strip(), parts[1].strip()
+    for token in (start, end):
+        pieces = token.split(":")
+        if len(pieces) < 2 or len(pieces) > 3:
+            raise ValueError(f"无法解析时间：{token!r}")
+        if not all(piece.isdigit() for piece in pieces):
+            raise ValueError(f"无法解析时间：{token!r}")
+    if len(start.split(":")) == 2:
+        start += ":00"
+    if len(end.split(":")) == 2:
+        end += ":00"
+    return start, end
+
+
+def minutes_of(hhmmss: str) -> int:
+    hour, minute, _ = hhmmss.split(":")
+    return int(hour) * 60 + int(minute)
+
+
+def crosses_noon(start: str, end: str) -> bool:
+    return minutes_of(start) < 12 * 60 < minutes_of(end)
+
+
+# ─────────────────────────── 档案构建 ───────────────────────────
+
+
+def build_time_layout(slots, times, included_indexes) -> dict:
+    """生成统一时间表：上课点 + 课间 + 长间隔分割线（午休）。"""
+    layouts = []
+    previous_end = None
+    for index in included_indexes:
+        start, end = parse_hhmm(times[index])
+        if previous_end is not None and minutes_of(start) > minutes_of(previous_end):
+            gap = minutes_of(start) - minutes_of(previous_end)
+            if gap >= LONG_GAP_MINUTES:
+                name = "午休" if crosses_noon(previous_end, start) else "休息"
+                layouts.append(
+                    {
+                        "StartTime": previous_end,
+                        "EndTime": previous_end,  # 分割线为瞬时点，与 ClassIsland 自身行为一致
+                        "TimeType": 2,
+                        "IsHideDefault": False,
+                        "DefaultClassId": ZERO_GUID,
+                        "BreakName": name,
+                    }
+                )
+            else:
+                layouts.append(
+                    {
+                        "StartTime": previous_end,
+                        "EndTime": start,
+                        "TimeType": 1,
+                        "IsHideDefault": False,
+                        "DefaultClassId": ZERO_GUID,
+                        "BreakName": "课间休息",
+                    }
+                )
+        layouts.append(
+            {
+                "StartTime": start,
+                "EndTime": end,
+                "TimeType": 0,
+                "IsHideDefault": False,
+                "DefaultClassId": ZERO_GUID,
+                "BreakName": "",
+            }
+        )
+        previous_end = end
+    return layouts
+
+
+def build_subjects_and_plans(data, included_indexes, weekday_names, exclude_report) -> tuple:
+    """遍历全部班级，生成科目总表与每班每日课表。返回 (subjects, classplans_by_class)。"""
+    schedule = data["schedule"]
+    slot_teachers = data.get("slot_teachers", {})
+    subjects = {}
+    classplans_by_class = {}
+
+    for cid in sorted(schedule.keys(), key=int):
+        grid = schedule[cid]
+        teachers_grid = slot_teachers.get(cid, [[None] * len(row) for row in grid])
+        class_number = int(cid)
+        plans = {}
+
+        for day_index, row in enumerate(grid):
+            day_name = data["days"][day_index]
+            weekday = weekday_names.index(day_name) + 1  # ClassIsland WeekDay：周一=1 … 周日=7
+            if weekday == 0:
+                raise RuntimeError(f"无法识别的星期名：{day_name!r}")
+            classes = []
+            for slot_index in included_indexes:
+                name = str(row[slot_index]).strip()
+                teacher = str(teachers_grid[day_index][slot_index] or "").strip() if day_index < len(teachers_grid) else ""
+                if not name:
+                    exclude_report.append(f"班级 {cid} 第 {day_index + 1} 天第 {slot_index + 1} 节为空，已按空课处理。")
+                    classes.append({"SubjectId": ZERO_GUID, "IsEnabled": False})
+                    continue
+                subject_id = guid_of("subject", name, teacher)
+                subjects.setdefault(
+                    subject_id,
+                    {
+                        "Name": name,
+                        "Initial": name[0],
+                        "TeacherName": teacher,
+                        "IsOutDoor": name == "体育",
+                    },
+                )
+                classes.append({"SubjectId": subject_id, "IsEnabled": True})
+
+            plan_id = guid_of("classplan", cid, str(weekday))
+            plans[plan_id] = {
+                "Name": f"高一{class_number}班 · {day_name}",
+                "TimeLayoutId": TIME_LAYOUT_ID,
+                "TimeRule": {"WeekDay": weekday, "WeekCountDiv": 0, "WeekCountDivTotal": 2},
+                "Classes": classes,
+                "IsEnabled": True,
+            }
+        classplans_by_class[cid] = plans
+
+    return subjects, classplans_by_class
+
+
+# ─────────────────────────── 版本与状态管理 ───────────────────────────
+
+
+def bump(entry: dict, new_hash: str, new_url: str, force: bool) -> tuple:
+    """根据内容哈希与 URL 判断是否递增版本号。返回 (版本号, 是否更新)。"""
+    old_version = int(entry.get("version", 0) or 0)
+    changed = entry.get("hash") != new_hash or (new_url is not None and entry.get("url") != new_url)
+    if changed or force:
+        return old_version + 1, True
+    return max(old_version, 1), False
+
+
+def canonical_text(obj) -> str:
+    return json.dumps(obj, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+# ─────────────────────────── 主流程 ───────────────────────────
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="生成 ClassIsland 高一课程表静态集控档案")
+    parser.add_argument("--source-file", default="result_actual.json", help="源站 API 的 file 参数（默认 result_actual.json）")
+    parser.add_argument("--repo", default=None, help="GitHub 仓库（owner/repo），未提供时读取 GITHUB_REPOSITORY")
+    parser.add_argument("--branch", default=None, help="分支名，未提供时读取 GITHUB_REF_NAME，再退回 main")
+    parser.add_argument("--base-url", default=None, help="直接指定档案托管根地址（覆盖 --repo/--branch）")
+    parser.add_argument("--force-bump", action="store_true", help="内容未变化时也递增版本号")
+    parser.add_argument("--dry-run", action="store_true", help="只计算并打印摘要，不写任何文件")
+    args = parser.parse_args()
+
+    cfg = load_config()
+    weekday_names = cfg["weekday_names"]
+
+    # ── 托管地址 ──
+    repo = args.repo or os.environ.get("GITHUB_REPOSITORY") or "OWNER/REPO"
+    branch = args.branch or os.environ.get("GITHUB_REF_NAME") or "main"
+    base_url = args.base_url or f"https://raw.githubusercontent.com/{repo}/{branch}"
+    print(f"托管根地址：{base_url}")
+
+    # ── 抓取与解析 ──
+    data = fetch_source(cfg["source_url"], args.source_file)
+    slots, times = data["slots"], data["times"]
+
+    import re as _re
+
+    patterns = [p for p in cfg["exclude_slot_patterns"] if p]
+    included_indexes = [
+        i for i, name in enumerate(slots)
+        if not any(_re.search(pattern, str(name)) for pattern in patterns)
+    ]
+    excluded = [slots[i] for i in range(len(slots)) if i not in included_indexes]
+    if not included_indexes:
+        raise RuntimeError("排除规则把全部节次都过滤掉了，请检查 build-config.json 的 exclude_slot_patterns。")
+    print(f"包含节次：{[slots[i] for i in included_indexes]}")
+    if excluded:
+        print(f"排除节次：{excluded}")
+
+    # ── 生成档案 ──
+    layouts = build_time_layout(slots, times, included_indexes)
+    lesson_count = sum(1 for item in layouts if item["TimeType"] == 0)
+    exclude_report = []
+    subjects, classplans_by_class = build_subjects_and_plans(data, included_indexes, weekday_names, exclude_report)
+    for note in exclude_report:
+        print(f"提示：{note}")
+
+    subject_count = len(subjects)
+    class_ids = sorted(classplans_by_class.keys(), key=int)
+    print(f"生成完成：{len(class_ids)} 个班 × 每班 {len(data['days'])} 张日课表，{lesson_count} 节/天，科目 {subject_count} 个。")
+
+    timelayouts_profile = {
+        "Name": "高一统一时间表（自动生成）",
+        "TimeLayouts": {TIME_LAYOUT_ID: {"Name": "高一统一时间表", "Layouts": layouts}},
+    }
+    subjects_profile = {"Name": "高一科目总表（自动生成）", "Subjects": subjects}
+
+    classplan_files = {}
+    for cid in class_ids:
+        classplan_files[cid] = {
+            "Name": f"高一{int(cid)}班 课表（自动生成）",
+            "ClassPlans": classplans_by_class[cid],
+        }
+
+    classplans_bundle_hash = sha256_text(canonical_text(classplan_files))
+    timelayouts_hash = sha256_text(canonical_text(timelayouts_profile))
+    subjects_hash = sha256_text(canonical_text(subjects_profile))
+    # 课表依赖时间表（Classes 数量必须与时间表上课点一致），时间表变化时同步刷新课表版本
+    classplans_hash = sha256_text(classplans_bundle_hash + timelayouts_hash)
+
+    urls = {
+        "classplans": f"{base_url}/classplans/{{id}}.json",
+        "timelayouts": f"{base_url}/timelayouts.json",
+        "subjects": f"{base_url}/subjects.json",
+        "policy": f"{base_url}/policy.json",
+    }
+
+    # ── 版本管理 ──
+    # 保留管理员手动维护的 PolicySource.Version（policy.json 不由本脚本管理）
+    existing_manifest = load_json_file(os.path.join(REPO_ROOT, "manifest.json"))
+    policy_version = 1
+    if existing_manifest and isinstance(existing_manifest.get("PolicySource"), dict):
+        raw_version = existing_manifest["PolicySource"].get("Version", existing_manifest["PolicySource"].get("version", 1))
+        try:
+            policy_version = max(int(raw_version or 1), 1)
+        except (TypeError, ValueError):
+            policy_version = 1
+
+    state = load_json_file(STATE_PATH) or {}
+    versions = {}
+    changes = {}
+    for key, new_hash in (
+        ("timelayouts", timelayouts_hash),
+        ("subjects", subjects_hash),
+        ("classplans", classplans_hash),
+    ):
+        entry = state.get(key, {})
+        version, changed = bump(entry, new_hash, urls[key], args.force_bump)
+        versions[key] = version
+        changes[key] = changed
+
+    # 课表逐班变更明细（用于摘要展示）
+    old_file_hashes = state.get("classplans", {}).get("files", {})
+    new_file_hashes = {cid: sha256_text(canonical_text(classplan_files[cid])) for cid in class_ids}
+    changed_classes = [cid for cid in class_ids if new_file_hashes[cid] != old_file_hashes.get(cid)]
+    if changes["classplans"] and not changed_classes:
+        changed_classes = list(class_ids)  # 时间表联动刷新
+
+    # ── 写盘 ──
+    if args.dry_run:
+        print("（dry-run 模式：不写任何文件）")
+    else:
+        for cid, profile in classplan_files.items():
+            dump_json(profile, os.path.join(REPO_ROOT, "classplans", f"{cid}.json"))
+        dump_json(timelayouts_profile, os.path.join(REPO_ROOT, "timelayouts.json"))
+        dump_json(subjects_profile, os.path.join(REPO_ROOT, "subjects.json"))
+
+        # 客户端预设文件（复制到班级机 ClassIsland 安装目录，打开应用即可一键加入集控）
+        for cid in class_ids:
+            preset = {
+                "ManagementServerKind": 0,
+                "ManagementServer": "",
+                "ManagementServerGrpc": "",
+                "ManifestUrlTemplate": f"{base_url}/manifest.json",
+                "ClassIdentity": cid,
+            }
+            dump_json(preset, os.path.join(REPO_ROOT, "presets", f"ManagementPreset-{cid}.json"))
+
+        # manifest.json：其余版本号由本脚本管理
+        manifest = {
+            "ServerKind": 0,
+            "OrganizationName": cfg["organization_name"],
+            "CoreVersion": cfg["core_version"],
+            "ClassPlanSource": {"Value": urls["classplans"], "Version": versions["classplans"]},
+            "TimeLayoutSource": {"Value": urls["timelayouts"], "Version": versions["timelayouts"]},
+            "SubjectsSource": {"Value": urls["subjects"], "Version": versions["subjects"]},
+            "PolicySource": {"Value": urls["policy"], "Version": policy_version},
+        }
+        dump_json(manifest, os.path.join(REPO_ROOT, "manifest.json"))
+
+        # 状态文件（内容派生，无时间戳，保证 git 历史干净）
+        new_state = {
+            "base_url": base_url,
+            "timelayouts": {"hash": timelayouts_hash, "version": versions["timelayouts"], "url": urls["timelayouts"]},
+            "subjects": {"hash": subjects_hash, "version": versions["subjects"], "url": urls["subjects"]},
+            "classplans": {
+                "hash": classplans_hash,
+                "version": versions["classplans"],
+                "url": urls["classplans"],
+                "files": new_file_hashes,
+            },
+        }
+        dump_json(new_state, STATE_PATH)
+
+        # 源数据快照（供人工 diff 审查）
+        os.makedirs(SNAPSHOT_DIR, exist_ok=True)
+        with open(os.path.join(SNAPSHOT_DIR, "result_actual.json"), "w", encoding="utf-8", newline="\n") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+
+        # 班级对照表（来自源站 teachers 元数据，供查阅；随课表更新自动刷新）
+        meta = data.get("teachers", {})
+        roster_lines = [
+            "# 高一班级对照表",
+            "",
+            "> 由 scripts/build.py 自动生成（源数据中的班级元数据快照），请勿手动编辑。",
+            "",
+            "| 集控 ID | 班级 | 班主任 | 选科组合 |",
+            "| --- | --- | --- | --- |",
+        ]
+        for cid in class_ids:
+            info = meta.get(cid, {})
+            roster_lines.append(
+                f"| {cid} | 高一{int(cid)}班 | {info.get('homeroom', '—')} | {info.get('combo', '—')} |"
+            )
+        with open(ROSTER_MD, "w", encoding="utf-8", newline="\n") as f:
+            f.write("\n".join(roster_lines) + "\n")
+
+        now = datetime.now(BEIJING_TZ).strftime("%Y-%m-%d %H:%M:%S")
+        dump_json(
+            {
+                "fetched_at": now,
+                "source_title": data.get("title", ""),
+                "source_file": args.source_file,
+                "class_count": len(class_ids),
+                "versions": versions,
+                "policy_version": policy_version,
+                "changed": changes,
+                "changed_classes": changed_classes,
+            },
+            LAST_UPDATE_JSON,
+        )
+
+        def ver_line(key, label):
+            mark = "已更新" if changes[key] else "未变化"
+            return f"| {label} | v{versions[key]} | {mark} |"
+
+        changed_class_text = "、".join(f"高一{int(c)}班" for c in changed_classes) if changed_classes else "无"
+        md = [
+            "## 高一课程表集控更新摘要",
+            "",
+            f"- 源数据：{data.get('title', args.source_file)}（{args.source_file}）",
+            f"- 抓取时间：{now}（北京时间）",
+            f"- 覆盖班级：{len(class_ids)} 个 ｜ 每日 {lesson_count} 节 ｜ 科目 {subject_count} 个",
+            "",
+            "| 档案 | 版本 | 状态 |",
+            "| --- | --- | --- |",
+            ver_line("timelayouts", "时间表 timelayouts.json"),
+            ver_line("subjects", "科目 subjects.json"),
+            ver_line("classplans", "课表 classplans/{id}.json"),
+            f"| 策略 policy.json | v{policy_version} | 手动维护 |",
+            "",
+            f"变更班级：{changed_class_text}",
+            "",
+            f"托管地址：{base_url}/manifest.json",
+        ]
+        with open(LAST_UPDATE_MD, "w", encoding="utf-8", newline="\n") as f:
+            f.write("\n".join(md) + "\n")
+
+    # ── 摘要输出（stdout 也会被 Action 写入 $GITHUB_STEP_SUMMARY 的场景使用）──
+    print()
+    print("版本号：")
+    for key, label in (("timelayouts", "时间表"), ("subjects", "科目"), ("classplans", "课表")):
+        print(f"  {label}: v{versions[key]}{'（更新）' if changes[key] else '（未变化）'}")
+    print(f"  策略: v{policy_version}（手动维护）")
+    if changed_classes:
+        print(f"变更班级：{'、'.join(f'高一{int(c)}班' for c in changed_classes)}")
+    else:
+        print("变更班级：无")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except RuntimeError as error:
+        print(f"构建失败：{error}", file=sys.stderr)
+        sys.exit(1)

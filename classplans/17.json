@@ -1,0 +1,205 @@
+{
+  "Name": "高一17班 课表（自动生成）",
+  "ClassPlans": {
+    "c47ed652-7ddf-5e20-89e8-cddda437386a": {
+      "Name": "高一17班 · 周一",
+      "TimeLayoutId": "3113c9e9-9dcb-530b-83f5-f751022b4d20",
+      "TimeRule": {
+        "WeekDay": 1,
+        "WeekCountDiv": 0,
+        "WeekCountDivTotal": 2
+      },
+      "Classes": [
+        {
+          "SubjectId": "652a0d7c-9b2b-5f6c-b5b8-83306c0f5e8b",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "d56fbf6f-9a71-5406-8f5e-c5e12268f8e7",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "b98ac4c9-f80a-5087-be86-1d4e6e7a1567",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "e8ed3185-9237-599e-a9e4-5cda419658e6",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "a1f394a2-2d78-52a0-bc34-46e46fa21e9d",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "83ab1837-fe49-5ef5-8c15-78f3c9816622",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "061a979b-0aed-57b9-9436-74668c7361c6",
+          "IsEnabled": true
+        }
+      ],
+      "IsEnabled": true
+    },
+    "ea655c49-e184-595c-8fdf-0a5b8541a1a3": {
+      "Name": "高一17班 · 周二",
+      "TimeLayoutId": "3113c9e9-9dcb-530b-83f5-f751022b4d20",
+      "TimeRule": {
+        "WeekDay": 2,
+        "WeekCountDiv": 0,
+        "WeekCountDivTotal": 2
+      },
+      "Classes": [
+        {
+          "SubjectId": "f36af6cf-ba6e-5470-8f70-e38669f56b5c",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "d64f1635-0bc5-5abf-a710-167a96e0c678",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "d521a0df-0a7a-5baa-8b66-01378d95418d",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "a1f394a2-2d78-52a0-bc34-46e46fa21e9d",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "e8ed3185-9237-599e-a9e4-5cda419658e6",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "061a979b-0aed-57b9-9436-74668c7361c6",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "061a979b-0aed-57b9-9436-74668c7361c6",
+          "IsEnabled": true
+        }
+      ],
+      "IsEnabled": true
+    },
+    "507eda4c-101c-5dce-8880-b3162197f486": {
+      "Name": "高一17班 · 周三",
+      "TimeLayoutId": "3113c9e9-9dcb-530b-83f5-f751022b4d20",
+      "TimeRule": {
+        "WeekDay": 3,
+        "WeekCountDiv": 0,
+        "WeekCountDivTotal": 2
+      },
+      "Classes": [
+        {
+          "SubjectId": "d56fbf6f-9a71-5406-8f5e-c5e12268f8e7",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "b98ac4c9-f80a-5087-be86-1d4e6e7a1567",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "e8ed3185-9237-599e-a9e4-5cda419658e6",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "e8ed3185-9237-599e-a9e4-5cda419658e6",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "061a979b-0aed-57b9-9436-74668c7361c6",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "a1f394a2-2d78-52a0-bc34-46e46fa21e9d",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "f36af6cf-ba6e-5470-8f70-e38669f56b5c",
+          "IsEnabled": true
+        }
+      ],
+      "IsEnabled": true
+    },
+    "2a1a74a4-225d-521a-b1d2-deb069e0cf12": {
+      "Name": "高一17班 · 周四",
+      "TimeLayoutId": "3113c9e9-9dcb-530b-83f5-f751022b4d20",
+      "TimeRule": {
+        "WeekDay": 4,
+        "WeekCountDiv": 0,
+        "WeekCountDivTotal": 2
+      },
+      "Classes": [
+        {
+          "SubjectId": "e8ed3185-9237-599e-a9e4-5cda419658e6",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "652a0d7c-9b2b-5f6c-b5b8-83306c0f5e8b",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "83ab1837-fe49-5ef5-8c15-78f3c9816622",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "a1f394a2-2d78-52a0-bc34-46e46fa21e9d",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "061a979b-0aed-57b9-9436-74668c7361c6",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "061a979b-0aed-57b9-9436-74668c7361c6",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "d64f1635-0bc5-5abf-a710-167a96e0c678",
+          "IsEnabled": true
+        }
+      ],
+      "IsEnabled": true
+    },
+    "d2a25ab4-5358-5694-8942-088db781b950": {
+      "Name": "高一17班 · 周五",
+      "TimeLayoutId": "3113c9e9-9dcb-530b-83f5-f751022b4d20",
+      "TimeRule": {
+        "WeekDay": 5,
+        "WeekCountDiv": 0,
+        "WeekCountDivTotal": 2
+      },
+      "Classes": [
+        {
+          "SubjectId": "e8ed3185-9237-599e-a9e4-5cda419658e6",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "d521a0df-0a7a-5baa-8b66-01378d95418d",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "a1f394a2-2d78-52a0-bc34-46e46fa21e9d",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "a1f394a2-2d78-52a0-bc34-46e46fa21e9d",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "d64f1635-0bc5-5abf-a710-167a96e0c678",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "061a979b-0aed-57b9-9436-74668c7361c6",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "b98ac4c9-f80a-5087-be86-1d4e6e7a1567",
+          "IsEnabled": true
+        }
+      ],
+      "IsEnabled": true
+    }
+  }
+}

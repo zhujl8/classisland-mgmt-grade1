@@ -1,0 +1,7 @@
+{
+  "ManagementServerKind": 0,
+  "ManagementServer": "",
+  "ManagementServerGrpc": "",
+  "ManifestUrlTemplate": "https://raw.githubusercontent.com/OWNER/REPO/main/manifest.json",
+  "ClassIdentity": "10"
+}

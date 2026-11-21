@@ -1,0 +1,114 @@
+{
+  "Name": "高一统一时间表（自动生成）",
+  "TimeLayouts": {
+    "3113c9e9-9dcb-530b-83f5-f751022b4d20": {
+      "Name": "高一统一时间表",
+      "Layouts": [
+        {
+          "StartTime": "07:30:00",
+          "EndTime": "08:15:00",
+          "TimeType": 0,
+          "IsHideDefault": false,
+          "DefaultClassId": "00000000-0000-0000-0000-000000000000",
+          "BreakName": ""
+        },
+        {
+          "StartTime": "08:15:00",
+          "EndTime": "08:45:00",
+          "TimeType": 1,
+          "IsHideDefault": false,
+          "DefaultClassId": "00000000-0000-0000-0000-000000000000",
+          "BreakName": "课间休息"
+        },
+        {
+          "StartTime": "08:45:00",
+          "EndTime": "09:30:00",
+          "TimeType": 0,
+          "IsHideDefault": false,
+          "DefaultClassId": "00000000-0000-0000-0000-000000000000",
+          "BreakName": ""
+        },
+        {
+          "StartTime": "09:30:00",
+          "EndTime": "09:40:00",
+          "TimeType": 1,
+          "IsHideDefault": false,
+          "DefaultClassId": "00000000-0000-0000-0000-000000000000",
+          "BreakName": "课间休息"
+        },
+        {
+          "StartTime": "09:40:00",
+          "EndTime": "10:25:00",
+          "TimeType": 0,
+          "IsHideDefault": false,
+          "DefaultClassId": "00000000-0000-0000-0000-000000000000",
+          "BreakName": ""
+        },
+        {
+          "StartTime": "10:25:00",
+          "EndTime": "10:35:00",
+          "TimeType": 1,
+          "IsHideDefault": false,
+          "DefaultClassId": "00000000-0000-0000-0000-000000000000",
+          "BreakName": "课间休息"
+        },
+        {
+          "StartTime": "10:35:00",
+          "EndTime": "11:20:00",
+          "TimeType": 0,
+          "IsHideDefault": false,
+          "DefaultClassId": "00000000-0000-0000-0000-000000000000",
+          "BreakName": ""
+        },
+        {
+          "StartTime": "11:20:00",
+          "EndTime": "11:20:00",
+          "TimeType": 2,
+          "IsHideDefault": false,
+          "DefaultClassId": "00000000-0000-0000-0000-000000000000",
+          "BreakName": "午休"
+        },
+        {
+          "StartTime": "14:00:00",
+          "EndTime": "14:45:00",
+          "TimeType": 0,
+          "IsHideDefault": false,
+          "DefaultClassId": "00000000-0000-0000-0000-000000000000",
+          "BreakName": ""
+        },
+        {
+          "StartTime": "14:45:00",
+          "EndTime": "14:55:00",
+          "TimeType": 1,
+          "IsHideDefault": false,
+          "DefaultClassId": "00000000-0000-0000-0000-000000000000",
+          "BreakName": "课间休息"
+        },
+        {
+          "StartTime": "14:55:00",
+          "EndTime": "15:40:00",
+          "TimeType": 0,
+          "IsHideDefault": false,
+          "DefaultClassId": "00000000-0000-0000-0000-000000000000",
+          "BreakName": ""
+        },
+        {
+          "StartTime": "15:40:00",
+          "EndTime": "15:50:00",
+          "TimeType": 1,
+          "IsHideDefault": false,
+          "DefaultClassId": "00000000-0000-0000-0000-000000000000",
+          "BreakName": "课间休息"
+        },
+        {
+          "StartTime": "15:50:00",
+          "EndTime": "16:35:00",
+          "TimeType": 0,
+          "IsHideDefault": false,
+          "DefaultClassId": "00000000-0000-0000-0000-000000000000",
+          "BreakName": ""
+        }
+      ]
+    }
+  }
+}
