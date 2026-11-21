@@ -3,19 +3,19 @@
   "OrganizationName": "2026级高一年级",
   "CoreVersion": "2.0.0.0",
   "ClassPlanSource": {
-    "Value": "https://raw.githubusercontent.com/OWNER/REPO/main/classplans/{id}.json",
-    "Version": 2
+    "Value": "https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/classplans/{id}.json",
+    "Version": 3
   },
   "TimeLayoutSource": {
-    "Value": "https://raw.githubusercontent.com/OWNER/REPO/main/timelayouts.json",
-    "Version": 2
+    "Value": "https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/timelayouts.json",
+    "Version": 3
   },
   "SubjectsSource": {
-    "Value": "https://raw.githubusercontent.com/OWNER/REPO/main/subjects.json",
-    "Version": 1
+    "Value": "https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/subjects.json",
+    "Version": 2
   },
   "PolicySource": {
-    "Value": "https://raw.githubusercontent.com/OWNER/REPO/main/policy.json",
+    "Value": "https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/policy.json",
     "Version": 1
   }
 }
