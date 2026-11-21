@@ -1,0 +1,65 @@
+{
+  "Name": "高一18班 科目（自动生成，仅含本班任课教师）",
+  "Subjects": {
+    "3363630b-e600-580a-a832-e00012069970": {
+      "Name": "物理",
+      "Initial": "物",
+      "TeacherName": "王向荣",
+      "IsOutDoor": false
+    },
+    "8f7afccf-4b29-552a-aaca-18f781473af9": {
+      "Name": "数学",
+      "Initial": "数",
+      "TeacherName": "陈晨",
+      "IsOutDoor": false
+    },
+    "a3ea90bf-d0dd-5ec8-89db-e7efe19d4dd1": {
+      "Name": "地理",
+      "Initial": "地",
+      "TeacherName": "李明蔚",
+      "IsOutDoor": false
+    },
+    "bb007581-ccf4-5eb1-b177-a7c1bbce2415": {
+      "Name": "历史",
+      "Initial": "历",
+      "TeacherName": "刘静飞",
+      "IsOutDoor": false
+    },
+    "d521a0df-0a7a-5baa-8b66-01378d95418d": {
+      "Name": "体育",
+      "Initial": "体",
+      "TeacherName": "刘嘉显",
+      "IsOutDoor": true
+    },
+    "d56fbf6f-9a71-5406-8f5e-c5e12268f8e7": {
+      "Name": "政治",
+      "Initial": "政",
+      "TeacherName": "吴燕双",
+      "IsOutDoor": false
+    },
+    "d64f1635-0bc5-5abf-a710-167a96e0c678": {
+      "Name": "化学",
+      "Initial": "化",
+      "TeacherName": "石俊楠",
+      "IsOutDoor": false
+    },
+    "dd3a6fa9-844d-5618-9fa0-1716e0aac598": {
+      "Name": "语文",
+      "Initial": "语",
+      "TeacherName": "张钰荃",
+      "IsOutDoor": false
+    },
+    "e61eee7e-649f-55fb-8161-c15d09282d8a": {
+      "Name": "生物",
+      "Initial": "生",
+      "TeacherName": "王宁",
+      "IsOutDoor": false
+    },
+    "e75f35e5-a08f-52c1-8c91-06f8b6cd0e93": {
+      "Name": "英语",
+      "Initial": "英",
+      "TeacherName": "王颖",
+      "IsOutDoor": false
+    }
+  }
+}

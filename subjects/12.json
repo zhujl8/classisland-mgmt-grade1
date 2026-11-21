@@ -1,0 +1,47 @@
+{
+  "Name": "高一12班 科目（自动生成，仅含本班任课教师）",
+  "Subjects": {
+    "2ed703da-a55d-5f42-9ed9-94f8b305b53d": {
+      "Name": "数学",
+      "Initial": "数",
+      "TeacherName": "段津荣",
+      "IsOutDoor": false
+    },
+    "83dde70e-beca-5bdb-a877-3b2bef3da982": {
+      "Name": "化学",
+      "Initial": "化",
+      "TeacherName": "樊磊",
+      "IsOutDoor": false
+    },
+    "9fe85b8d-c75d-5d0a-939d-a818fb1745c3": {
+      "Name": "体育",
+      "Initial": "体",
+      "TeacherName": "代焕庆",
+      "IsOutDoor": true
+    },
+    "cf30461d-6570-5a0a-a225-e6a33d3a5cb8": {
+      "Name": "语文",
+      "Initial": "语",
+      "TeacherName": "张敏",
+      "IsOutDoor": false
+    },
+    "d8173e1c-db72-52a6-8ea4-3012facdb6d3": {
+      "Name": "物理",
+      "Initial": "物",
+      "TeacherName": "高铭鸿",
+      "IsOutDoor": false
+    },
+    "ed55679b-c69f-5021-935f-ddfe905222f4": {
+      "Name": "英语",
+      "Initial": "英",
+      "TeacherName": "周晓宸",
+      "IsOutDoor": false
+    },
+    "fac81fab-1c1f-5431-8c63-a4ff1db370ce": {
+      "Name": "生物",
+      "Initial": "生",
+      "TeacherName": "刘心娅",
+      "IsOutDoor": false
+    }
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "Name": "高一19班 科目（自动生成，仅含本班任课教师）",
+  "Subjects": {
+    "13e93fdd-ba8d-59a2-b960-1276defe620c": {
+      "Name": "物理",
+      "Initial": "物",
+      "TeacherName": "王璐瑶",
+      "IsOutDoor": false
+    },
+    "42f4192e-a20f-566c-b790-94179b63401e": {
+      "Name": "语文",
+      "Initial": "语",
+      "TeacherName": "杜程昊",
+      "IsOutDoor": false
+    },
+    "4b000270-5078-5135-bb80-d262bf245bce": {
+      "Name": "数学",
+      "Initial": "数",
+      "TeacherName": "徐永茂",
+      "IsOutDoor": false
+    },
+    "9e8a461d-93fe-5437-9484-4adde907c27e": {
+      "Name": "英语",
+      "Initial": "英",
+      "TeacherName": "黄爱芬",
+      "IsOutDoor": false
+    },
+    "bb007581-ccf4-5eb1-b177-a7c1bbce2415": {
+      "Name": "历史",
+      "Initial": "历",
+      "TeacherName": "刘静飞",
+      "IsOutDoor": false
+    },
+    "c7452a24-15fb-53fd-9bc2-655b77f5c75d": {
+      "Name": "生物",
+      "Initial": "生",
+      "TeacherName": "王语婷",
+      "IsOutDoor": false
+    },
+    "cdcabeaf-be01-5905-9889-ac2eae86b1eb": {
+      "Name": "化学",
+      "Initial": "化",
+      "TeacherName": "李睿骄",
+      "IsOutDoor": false
+    },
+    "d521a0df-0a7a-5baa-8b66-01378d95418d": {
+      "Name": "体育",
+      "Initial": "体",
+      "TeacherName": "刘嘉显",
+      "IsOutDoor": true
+    },
+    "d56fbf6f-9a71-5406-8f5e-c5e12268f8e7": {
+      "Name": "政治",
+      "Initial": "政",
+      "TeacherName": "吴燕双",
+      "IsOutDoor": false
+    },
+    "dbccca58-d6c9-55b8-8eda-12210e0a7098": {
+      "Name": "地理",
+      "Initial": "地",
+      "TeacherName": "方芸芸",
+      "IsOutDoor": false
+    }
+  }
+}

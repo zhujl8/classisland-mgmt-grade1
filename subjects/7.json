@@ -1,0 +1,65 @@
+{
+  "Name": "高一7班 科目（自动生成，仅含本班任课教师）",
+  "Subjects": {
+    "2754fb01-1259-59d4-a7a2-7f5760e39abc": {
+      "Name": "英语",
+      "Initial": "英",
+      "TeacherName": "葛玉凤",
+      "IsOutDoor": false
+    },
+    "4725636b-c44e-5f2f-90b8-f6edfe28eaca": {
+      "Name": "生物",
+      "Initial": "生",
+      "TeacherName": "姜在钊",
+      "IsOutDoor": false
+    },
+    "6709c28a-9b1e-5ed0-ad87-392eff11a74e": {
+      "Name": "物理",
+      "Initial": "物",
+      "TeacherName": "张卓凡",
+      "IsOutDoor": false
+    },
+    "9fe85b8d-c75d-5d0a-939d-a818fb1745c3": {
+      "Name": "体育",
+      "Initial": "体",
+      "TeacherName": "代焕庆",
+      "IsOutDoor": true
+    },
+    "a1f394a2-2d78-52a0-bc34-46e46fa21e9d": {
+      "Name": "语文",
+      "Initial": "语",
+      "TeacherName": "王若男",
+      "IsOutDoor": false
+    },
+    "a52c6b9c-11f4-5b81-8e3a-e6f3397f17a7": {
+      "Name": "化学",
+      "Initial": "化",
+      "TeacherName": "孙伟婷",
+      "IsOutDoor": false
+    },
+    "ad37b9a6-6fd4-51af-8912-56e382013355": {
+      "Name": "政治",
+      "Initial": "政",
+      "TeacherName": "杨子璇",
+      "IsOutDoor": false
+    },
+    "b796657a-202b-5904-bf5e-f3a025ca3061": {
+      "Name": "历史",
+      "Initial": "历",
+      "TeacherName": "卢鹏清",
+      "IsOutDoor": false
+    },
+    "bfa380f3-3974-52b6-8edd-dea1718e6311": {
+      "Name": "数学",
+      "Initial": "数",
+      "TeacherName": "战彪",
+      "IsOutDoor": false
+    },
+    "f36af6cf-ba6e-5470-8f70-e38669f56b5c": {
+      "Name": "地理",
+      "Initial": "地",
+      "TeacherName": "杨廷富",
+      "IsOutDoor": false
+    }
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "Name": "高一4班 科目（自动生成，仅含本班任课教师）",
+  "Subjects": {
+    "13e93fdd-ba8d-59a2-b960-1276defe620c": {
+      "Name": "物理",
+      "Initial": "物",
+      "TeacherName": "王璐瑶",
+      "IsOutDoor": false
+    },
+    "3603428a-39f7-54f1-b73a-2ffb7eba06b1": {
+      "Name": "数学",
+      "Initial": "数",
+      "TeacherName": "宫莹莹",
+      "IsOutDoor": false
+    },
+    "55684905-83cb-503a-aaab-55d952ae60a2": {
+      "Name": "政治",
+      "Initial": "政",
+      "TeacherName": "庞松鹏",
+      "IsOutDoor": false
+    },
+    "63609997-9c6b-5bd6-aada-0e838ef7d50c": {
+      "Name": "语文",
+      "Initial": "语",
+      "TeacherName": "宋梓境",
+      "IsOutDoor": false
+    },
+    "9fe85b8d-c75d-5d0a-939d-a818fb1745c3": {
+      "Name": "体育",
+      "Initial": "体",
+      "TeacherName": "代焕庆",
+      "IsOutDoor": true
+    },
+    "a3ea90bf-d0dd-5ec8-89db-e7efe19d4dd1": {
+      "Name": "地理",
+      "Initial": "地",
+      "TeacherName": "李明蔚",
+      "IsOutDoor": false
+    },
+    "a7fe35c9-2eb6-5c62-b704-bf7499ae01ca": {
+      "Name": "英语",
+      "Initial": "英",
+      "TeacherName": "张博林",
+      "IsOutDoor": false
+    },
+    "bb007581-ccf4-5eb1-b177-a7c1bbce2415": {
+      "Name": "历史",
+      "Initial": "历",
+      "TeacherName": "刘静飞",
+      "IsOutDoor": false
+    },
+    "c7452a24-15fb-53fd-9bc2-655b77f5c75d": {
+      "Name": "生物",
+      "Initial": "生",
+      "TeacherName": "王语婷",
+      "IsOutDoor": false
+    },
+    "de949c66-0297-59bb-af30-4478d6768f35": {
+      "Name": "化学",
+      "Initial": "化",
+      "TeacherName": "陈鑫泉",
+      "IsOutDoor": false
+    }
+  }
+}

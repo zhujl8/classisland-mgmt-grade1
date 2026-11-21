@@ -10,16 +10,20 @@ validate.py —— 校验仓库中生成的集控档案是否满足 ClassIsland 
   4. classplans/{id}.json（时间表/科目引用完整性、WeekDay 取值、多周轮换规则组合、每张课表节数）
   5. presets/（ManifestUrlTemplate 与 manifest 一致、ClassIdentity 与文件名一致）
   6. policy.json（仅允许已知布尔字段）
+  7. data/state.json 与 policy.json / manifest 的版本一致性
+  8. manifest 的 DefaultSettingsSource 与 settings/default-settings.json（学期开始时间）
+  9. classplans/ 与 presets/ 的班级集合是否一一对应（识别未清理的陈旧文件）
 
 零第三方依赖，Python 3.9+。全部通过退出码 0，任何问题退出码 1。
 """
 
 import glob
+import hashlib
 import json
 import os
 import re
 import sys
-import uuid
+from datetime import date, datetime, timedelta
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -33,6 +37,10 @@ DEFAULT_GROUP_GUID = "acaf4ef0-e261-4262-b941-34ea93cb4369"  # 默认课表群
 
 errors: list[str] = []
 warnings: list[str] = []
+
+
+def canonical_json(obj) -> str:
+    return json.dumps(obj, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
 def error(msg: str) -> None:
@@ -73,7 +81,6 @@ def check_reversion_string(container: str, entry) -> None:
 def main() -> int:
     # ── manifest.json ──
     manifest = load("manifest.json")
-    base_url = None
     if manifest is not None:
         if manifest.get("ServerKind") != 0:
             error(f"manifest.json: ServerKind 应为 0（静态托管），实际为 {manifest.get('ServerKind')!r}")
@@ -90,11 +97,13 @@ def main() -> int:
         cp = manifest.get("ClassPlanSource") or {}
         if isinstance(cp.get("Value"), str) and not URL_ID_TEMPLATE_RE.search(cp["Value"]):
             error("manifest.json.ClassPlanSource.Value 应包含 {id} 模板以按班级分发课表")
+        subjects_source = manifest.get("SubjectsSource") or {}
+        if isinstance(subjects_source.get("Value"), str) and not URL_ID_TEMPLATE_RE.search(subjects_source["Value"]):
+            error("manifest.json.SubjectsSource.Value 应包含 {id} 模板，按班级分发科目（否则每台设备都会拿到全年级教师名单）")
         tls = manifest.get("TimeLayoutSource") or {}
         if isinstance(tls.get("Value"), str) and URL_ID_TEMPLATE_RE.search(tls["Value"]):
             warning("manifest.json.TimeLayoutSource.Value 含有 {id} 模板：每班独立时间表通常没有必要，除非确有需求")
-        tlv = (tls.get("Value") or "")
-        base_url = tlv.rsplit("/", 1)[0] if "/" in tlv else None
+
 
     # ── timelayouts.json ──
     timelayouts_profile = load("timelayouts.json")
@@ -147,23 +156,43 @@ def main() -> int:
         else:
             error("build-config.json: week_cycle.home_week_friday_school_over 未设置")
 
-    # ── subjects.json ──
-    subjects_profile = load("subjects.json")
-    subject_ids = set()
-    if subjects_profile is not None:
-        subjects_map = subjects_profile.get("Subjects")
+    # ── subjects/{id}.json（按班级拆分的科目表）──
+    subject_files = sorted(
+        glob.glob(os.path.join(REPO_ROOT, "subjects", "*.json")),
+        key=lambda p: (len(os.path.basename(p)[:-5]), os.path.basename(p)),
+    )
+    if not subject_files:
+        error("subjects/ 目录下没有任何按班级拆分的科目文件")
+    if os.path.exists(os.path.join(REPO_ROOT, "subjects.json")):
+        error("仓库中仍存在旧的全局科目总表 subjects.json（会把全年级教师姓名分发给每台设备，请删除）")
+    subjects_by_class = {}
+    subject_name_sets = {}
+    for path in subject_files:
+        rel = os.path.relpath(path, REPO_ROOT)
+        cid = os.path.basename(path)[:-5]
+        if not cid.isdigit():
+            error(f"{rel}: 文件名应为纯数字班级 ID，实际为 {cid!r}")
+        profile = load(os.path.join("subjects", os.path.basename(path)))
+        if profile is None:
+            continue
+        subjects_map = profile.get("Subjects")
         if not isinstance(subjects_map, dict) or not subjects_map:
-            error("subjects.json: Subjects 为空")
-        else:
-            for sid, subject in subjects_map.items():
-                if not GUID_RE.match(str(sid)):
-                    error(f"subjects.json: 科目 ID 不是 GUID：{sid!r}")
-                subject_ids.add(str(sid))
-                if not str(subject.get("Name", "")).strip():
-                    error(f"subjects.json: 科目 {sid} 缺少 Name")
-                teacher = subject.get("TeacherName", "")
-                if not str(teacher).strip():
-                    warning(f"subjects.json: 科目 {subject.get('Name')}（{sid}）没有教师名")
+            error(f"{rel}: Subjects 为空")
+            continue
+        ids = set()
+        names = set()
+        for sid, subject in subjects_map.items():
+            if not GUID_RE.match(str(sid)):
+                error(f"{rel}: 科目 ID 不是 GUID：{sid!r}")
+            ids.add(str(sid))
+            if not str(subject.get("Name", "")).strip():
+                error(f"{rel}: 科目 {sid} 缺少 Name")
+            teacher = subject.get("TeacherName", "")
+            if not str(teacher).strip():
+                warning(f"{rel}: 科目 {subject.get('Name')}（{sid}）没有教师名")
+            names.add((str(subject.get("Name", "")), str(teacher)))
+        subjects_by_class[cid] = ids
+        subject_name_sets[cid] = names
 
     # ── classplans/{id}.json ──
     tl_ids = set()
@@ -177,6 +206,7 @@ def main() -> int:
     if not files:
         error("classplans/ 目录下没有任何课表文件")
     seen_plan_names = set()
+    stub_count = 0
     rot_summary = set()  # (weekday, div) 样本，用于汇总输出
     for path in files:
         rel = os.path.relpath(path, REPO_ROOT)
@@ -191,6 +221,7 @@ def main() -> int:
             error(f"{rel}: ClassPlans 为空")
             continue
         weekdays = {}
+        used_subject_ids = set()
         for plan_id, plan in plans.items():
             if not GUID_RE.match(str(plan_id)):
                 error(f"{rel}: 课表 ID 不是 GUID：{plan_id!r}")
@@ -219,7 +250,9 @@ def main() -> int:
                     f"WeekCountDivTotal={week_total}，且双周轮换要求 WeekCountDivTotal ≥ 2"
                 )
                 continue
-            weekdays.setdefault(weekday, []).append((week_div, week_total, name))
+            plan_enabled = plan.get("IsEnabled", True) is not False
+            if plan_enabled:
+                weekdays.setdefault(weekday, []).append((week_div, week_total, name))
 
             group = plan.get("AssociatedGroup")
             if group is not None and str(group).lower() not in (GLOBAL_GROUP_GUID, DEFAULT_GROUP_GUID):
@@ -230,26 +263,46 @@ def main() -> int:
 
             if str(plan.get("TimeLayoutId")) not in tl_ids:
                 error(f"{rel}: 课表 {name!r} 引用了不存在的时间表 {plan.get('TimeLayoutId')}")
-            elif home_layout_ids:
+            elif home_layout_ids and plan_enabled:
                 layout_key = str(plan.get("TimeLayoutId"))
                 if week_div == 2 and layout_key not in home_layout_ids:
                     error(f"{rel}: 课表 {name!r} 为第 2 周（回家周）课表，应引用提前放学时间表")
                 if week_div == 1 and layout_key in home_layout_ids:
                     error(f"{rel}: 课表 {name!r} 为第 1 周（返校周）课表，不应引用提前放学时间表")
             classes = plan.get("Classes")
-            if not isinstance(classes, list) or not classes:
+            if not isinstance(classes, list):
+                error(f"{rel}: 课表 {name!r} 的 Classes 应为数组")
+                continue
+            if not classes and plan_enabled:
                 error(f"{rel}: 课表 {name!r} 没有任何课程")
+                continue
+            if not plan_enabled:
+                stub_count += 1
                 continue
             expected_lessons = lesson_counts.get(str(plan.get("TimeLayoutId")))
             if expected_lessons is not None and len(classes) != expected_lessons:
                 error(
                     f"{rel}: 课表 {name!r} 课程数 {len(classes)} 与所引用时间表上课点数 {expected_lessons} 不一致"
                 )
+            class_subject_ids = subjects_by_class.get(cid) or set()
             for index, cls in enumerate(classes):
                 sid = str(cls.get("SubjectId"))
                 enabled = cls.get("IsEnabled", True)
-                if enabled and sid not in subject_ids:
-                    error(f"{rel}: 课表 {name!r} 第 {index + 1} 节引用了不存在的科目 {sid}")
+                if enabled:
+                    used_subject_ids.add(sid)
+                if enabled and sid not in class_subject_ids:
+                    error(
+                        f"{rel}: 课表 {name!r} 第 {index + 1} 节引用了本班科目表里没有的科目 {sid}"
+                        f"（subjects/{cid}.json 应包含本班全部任课教师）"
+                    )
+
+        # 本班科目表不应包含本班用不到的「科目+教师」（否则等于把别人的老师也发给了这台设备）
+        extra_subjects = sorted((subjects_by_class.get(cid) or set()) - used_subject_ids)
+        if extra_subjects:
+            error(
+                f"{rel}: subjects/{cid}.json 含本班课表未使用的科目 {extra_subjects}"
+                "（应只包含本班任课教师）"
+            )
 
         # 多周轮换组合校验：同一周同一天只能命中一张课表
         for weekday, entries in sorted(weekdays.items()):
@@ -277,7 +330,6 @@ def main() -> int:
     if not presets:
         error("presets/ 目录下没有任何客户端预设文件")
     manifest_url = None
-    mf = manifest.get("ClassPlanSource") if manifest else None
     if manifest and isinstance(manifest.get("ClassPlanSource"), dict):
         # manifest 地址与预设地址同根，从任一源地址推导
         root = None
@@ -318,13 +370,76 @@ def main() -> int:
             elif not isinstance(value, bool):
                 error(f"policy.json: {key} 应为布尔值，实际为 {value!r}")
 
+    # ── data/state.json：策略版本是否跟上内容变化 ──
+    state = load("data/state.json")
+    if isinstance(state, dict) and isinstance(policy, dict):
+        recorded_policy = state.get("policy") if isinstance(state.get("policy"), dict) else {}
+        actual_hash = hashlib.sha256(canonical_json(policy).encode("utf-8")).hexdigest()
+        if recorded_policy.get("hash") and recorded_policy["hash"] != actual_hash:
+            error(
+                "data/state.json: policy 哈希与 policy.json 不一致"
+                "（策略已改动但未重新运行 build.py，客户端可能拿不到新策略）"
+            )
+        manifest_policy = (manifest or {}).get("PolicySource") or {}
+        if isinstance(manifest_policy.get("Version"), int) and isinstance(recorded_policy.get("version"), int):
+            if manifest_policy["Version"] < recorded_policy["version"]:
+                error("manifest.json: PolicySource.Version 低于 data/state.json 记录的策略版本")
+
+    # ── 默认设置源（下发学期开始时间）──
+    settings_rel = os.path.join("settings", "default-settings.json")
+    settings_doc = load(settings_rel) if os.path.exists(os.path.join(REPO_ROOT, settings_rel)) else None
+    default_settings_source = (manifest or {}).get("DefaultSettingsSource")
+    if default_settings_source is not None:
+        check_reversion_string("manifest.json.DefaultSettingsSource", default_settings_source)
+        if settings_doc is None:
+            error("manifest.json: 挂了 DefaultSettingsSource，但 settings/default-settings.json 不存在")
+        else:
+            raw = settings_doc.get("SingleWeekStartTime")
+            try:
+                parsed = datetime.fromisoformat(str(raw)).date()
+            except ValueError:
+                parsed = None
+            if parsed is None:
+                error(f"settings/default-settings.json: SingleWeekStartTime 无法解析：{raw!r}")
+            elif isinstance(cycle_cfg, dict) and cycle_cfg.get("enabled"):
+                monday_raw = str(cycle_cfg.get("return_week_monday") or "").strip()
+                try:
+                    expected = date.fromisoformat(monday_raw) - timedelta(days=1)
+                except ValueError:
+                    expected = None
+                if expected and parsed != expected:
+                    error(
+                        f"settings/default-settings.json: SingleWeekStartTime 为 {parsed}，"
+                        f"应为返校周周一前一天 {expected}（否则全新机器单双周会错一周）"
+                    )
+    elif settings_doc is not None:
+        warning("settings/default-settings.json 存在，但 manifest.json 未挂 DefaultSettingsSource（客户端不会应用）")
+
+    # ── 班级文件与预设文件是否一一对应（识别未清理的陈旧文件）──
+    plan_ids = {os.path.basename(path)[:-5] for path in files}
+    preset_ids = {os.path.basename(path)[len("ManagementPreset-"):-5] for path in presets}
+    subject_ids_by_class = set(subjects_by_class.keys())
+    if subject_ids_by_class != plan_ids:
+        error(
+            f"subjects/: 班级集合与 classplans/ 不一致"
+            f"（缺少 {sorted(plan_ids - subject_ids_by_class, key=int)}，多余 {sorted(subject_ids_by_class - plan_ids, key=int)}）"
+        )
+    missing_presets = plan_ids - preset_ids
+    orphan_presets = preset_ids - plan_ids
+    if missing_presets:
+        error(f"presets/: 缺少班级 {sorted(missing_presets, key=int)} 的预设文件")
+    if orphan_presets:
+        error(f"presets/: 存在无对应课表文件的预设 {sorted(orphan_presets, key=int)}（源数据已无该班级，请重新构建以清理）")
+
     # ── 汇总 ──
-    print(f"校验完成：{len(files)} 份课表文件，{len(presets)} 份预设。")
+    print(f"校验完成：{len(files)} 份课表文件，{len(subject_files)} 份班级科目表，{len(presets)} 份预设。")
     if rot_summary:
         summary_text = "、".join(
             f"星期{day}→第{','.join(str(d) for d in divs)}周" for day, divs in sorted(rot_summary)
         )
-        print(f"多周轮换：{summary_text}（客户端按「学期首日」自动切换）。")
+        print(f"多周轮换：{summary_text}（客户端按「学期开始时间」自动切换）。")
+    if stub_count:
+        print(f"停用课表（含退场中和桩）：{stub_count} 张（IsEnabled=false，不参与当日命中）。")
     for item in warnings:
         print(f"警告：{item}")
     if errors:

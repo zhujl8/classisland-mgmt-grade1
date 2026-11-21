@@ -1,0 +1,65 @@
+{
+  "Name": "高一9班 科目（自动生成，仅含本班任课教师）",
+  "Subjects": {
+    "39b06382-fb9f-5f46-87b6-f9b55d9e96bc": {
+      "Name": "生物",
+      "Initial": "生",
+      "TeacherName": "贺嘉懿",
+      "IsOutDoor": false
+    },
+    "4b000270-5078-5135-bb80-d262bf245bce": {
+      "Name": "数学",
+      "Initial": "数",
+      "TeacherName": "徐永茂",
+      "IsOutDoor": false
+    },
+    "652a0d7c-9b2b-5f6c-b5b8-83306c0f5e8b": {
+      "Name": "历史",
+      "Initial": "历",
+      "TeacherName": "李磊",
+      "IsOutDoor": false
+    },
+    "9013a5a4-5165-50e5-8fa3-48b77e3a8736": {
+      "Name": "体育",
+      "Initial": "体",
+      "TeacherName": "崔得入",
+      "IsOutDoor": true
+    },
+    "ad37b9a6-6fd4-51af-8912-56e382013355": {
+      "Name": "政治",
+      "Initial": "政",
+      "TeacherName": "杨子璇",
+      "IsOutDoor": false
+    },
+    "b092675e-5166-5882-ba1c-9f503c9520c1": {
+      "Name": "物理",
+      "Initial": "物",
+      "TeacherName": "陈赫",
+      "IsOutDoor": false
+    },
+    "b8875084-2389-5767-baac-97406d1d13c5": {
+      "Name": "化学",
+      "Initial": "化",
+      "TeacherName": "于少丽",
+      "IsOutDoor": false
+    },
+    "dd3a6fa9-844d-5618-9fa0-1716e0aac598": {
+      "Name": "语文",
+      "Initial": "语",
+      "TeacherName": "张钰荃",
+      "IsOutDoor": false
+    },
+    "f36af6cf-ba6e-5470-8f70-e38669f56b5c": {
+      "Name": "地理",
+      "Initial": "地",
+      "TeacherName": "杨廷富",
+      "IsOutDoor": false
+    },
+    "f610c11e-a946-5f8c-96d2-11fda9454464": {
+      "Name": "英语",
+      "Initial": "英",
+      "TeacherName": "孙香芹",
+      "IsOutDoor": false
+    }
+  }
+}

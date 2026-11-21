@@ -7,7 +7,9 @@
     position(Total)   = (totalElapsedWeeks % Total) + 1        # 1-based
     plan 生效         = WeekDay 匹配 且 (WeekCountDiv == 0 或 WeekCountDiv == position)
 
-学期首日取 build-config.json 推导值（return_week_monday 前一天，周日）。
+学期开始时间优先取 settings/default-settings.json（即 DefaultSettingsSource 实际下发的值，
+全新机器拿到的就是它）；该文件不存在时退回 build-config.json 推导值（return_week_monday 前一天，周日）。
+假设客户端 MultiWeekRotationOffset 保持默认 0（若设备上被调整过"多周轮换偏移"，轮换会整体平移）。
 零依赖，仅用于本地自检，不属于集控运行时文件。
 """
 
@@ -32,10 +34,19 @@ def main() -> int:
         print("week_cycle 未启用，无需模拟")
         return 0
 
-    # 客户端学期首日（Settings.SingleWeekStartTime）= 返校周周一的前一天（周日）
-    semester_start = date.fromisoformat(cycle["return_week_monday"]) - timedelta(days=1)
+    # 客户端 Settings.SingleWeekStartTime（界面：「学期开始时间」）
+    expected_start = date.fromisoformat(cycle["return_week_monday"]) - timedelta(days=1)
+    settings_path = os.path.join(REPO_ROOT, "settings", "default-settings.json")
+    semester_start = expected_start
+    if os.path.exists(settings_path):
+        raw = load(os.path.join("settings", "default-settings.json")).get("SingleWeekStartTime")
+        try:
+            semester_start = date.fromisoformat(str(raw)[:10])
+        except ValueError:
+            semester_start = expected_start
+        if semester_start != expected_start:
+            print(f"警告：settings/default-settings.json 的学期开始时间 {semester_start} 与推导值 {expected_start} 不一致（按文件值模拟）")
     school_over = cycle["home_week_friday_school_over"]
-    first_class = cycle["home_week_friday_first_class"]
 
     classplan = load("classplans/1.json")
     plans = list(classplan["ClassPlans"].values())
@@ -59,7 +70,7 @@ def main() -> int:
         return rule["WeekCountDiv"] == position
 
     errors = []
-    print(f"学期首日（客户端设置）：{semester_start}（{DAY_CN[semester_start.weekday()]}）")
+    print(f"学期开始时间（客户端设置）：{semester_start}（{DAY_CN[semester_start.weekday()]}）")
     print(f"{'日期':<12}{'星期':<4}{'轮周':<6}命中课表 / 末节结束")
     # 从返校周周一开始覆盖三个完整两周循环
     start = date.fromisoformat(cycle["return_week_monday"])

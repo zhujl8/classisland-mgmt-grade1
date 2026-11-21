@@ -1,0 +1,65 @@
+{
+  "Name": "高一16班 科目（自动生成，仅含本班任课教师）",
+  "Subjects": {
+    "061a979b-0aed-57b9-9436-74668c7361c6": {
+      "Name": "数学",
+      "Initial": "数",
+      "TeacherName": "马锦华",
+      "IsOutDoor": false
+    },
+    "13e93fdd-ba8d-59a2-b960-1276defe620c": {
+      "Name": "物理",
+      "Initial": "物",
+      "TeacherName": "王璐瑶",
+      "IsOutDoor": false
+    },
+    "39b06382-fb9f-5f46-87b6-f9b55d9e96bc": {
+      "Name": "生物",
+      "Initial": "生",
+      "TeacherName": "贺嘉懿",
+      "IsOutDoor": false
+    },
+    "652a0d7c-9b2b-5f6c-b5b8-83306c0f5e8b": {
+      "Name": "历史",
+      "Initial": "历",
+      "TeacherName": "李磊",
+      "IsOutDoor": false
+    },
+    "6e3c03f4-b311-526b-a0de-05d576193892": {
+      "Name": "化学",
+      "Initial": "化",
+      "TeacherName": "杨雪",
+      "IsOutDoor": false
+    },
+    "9e8a461d-93fe-5437-9484-4adde907c27e": {
+      "Name": "英语",
+      "Initial": "英",
+      "TeacherName": "黄爱芬",
+      "IsOutDoor": false
+    },
+    "aa59798a-b7dc-5b6d-96b5-33f3231d3d2f": {
+      "Name": "语文",
+      "Initial": "语",
+      "TeacherName": "步淑华",
+      "IsOutDoor": false
+    },
+    "d521a0df-0a7a-5baa-8b66-01378d95418d": {
+      "Name": "体育",
+      "Initial": "体",
+      "TeacherName": "刘嘉显",
+      "IsOutDoor": true
+    },
+    "d56fbf6f-9a71-5406-8f5e-c5e12268f8e7": {
+      "Name": "政治",
+      "Initial": "政",
+      "TeacherName": "吴燕双",
+      "IsOutDoor": false
+    },
+    "f36af6cf-ba6e-5470-8f70-e38669f56b5c": {
+      "Name": "地理",
+      "Initial": "地",
+      "TeacherName": "杨廷富",
+      "IsOutDoor": false
+    }
+  }
+}

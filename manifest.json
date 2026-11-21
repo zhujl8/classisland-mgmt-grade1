@@ -11,11 +11,15 @@
     "Version": 3
   },
   "SubjectsSource": {
-    "Value": "https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/subjects.json",
-    "Version": 2
+    "Value": "https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/subjects/{id}.json",
+    "Version": 3
   },
   "PolicySource": {
     "Value": "https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/policy.json",
+    "Version": 1
+  },
+  "DefaultSettingsSource": {
+    "Value": "https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/settings/default-settings.json",
     "Version": 1
   }
 }

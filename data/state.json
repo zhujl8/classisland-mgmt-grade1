@@ -6,9 +6,31 @@
     "url": "https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/timelayouts.json"
   },
   "subjects": {
-    "hash": "43d15efb0385c0fe07d354cbb731143e46b40822d4368d48f48fd9a180698e72",
-    "version": 2,
-    "url": "https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/subjects.json"
+    "hash": "816a016276db648b861d8c24c0a9510bd524bf5ca282deb35e7fb50c72ac6d84",
+    "version": 3,
+    "url": "https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/subjects/{id}.json",
+    "files": {
+      "1": "0784ce2d4d08c6f4fe4db817610e511fcc7e01dde6146b85aa42bc65c44dc8fe",
+      "2": "68b38d9d1bd948fc72841f5b3a6467eb3245cb2e3ad89923b6e05cdb346c7154",
+      "3": "c021c179dbad9eaf16b591b886fe8935f3ef258dc4cb3fbc77d0c556506956cf",
+      "4": "f6e87ec9e5dab9996d8b49d287d318a2b854d606961a4ce31d3d2d36b985b0a1",
+      "5": "02fb6f67120733c2da2ecb8e5c9e199862169e6d7a2a210e92f83560e611fa15",
+      "6": "36802f7c0b0df81154c59e7348387421ba3052ee9dc5722c13d1391b7198454a",
+      "7": "dd5f0838d0c17bf742c5d869ea3688a09dc7b0e4b3577a568b00bd4865bf50d7",
+      "8": "c70a1d0442166e59d650b344255a7773198b7db6f263be0cef8b35b3a8f06f11",
+      "9": "83e064452fea076feb644384ab455ef0bee3e44cfc43a2a9b4e7ffdab94dacb1",
+      "10": "83b7db2218ed8720d86ef5350005e8f12db9458773c7a8951d3eab3f38bf913b",
+      "11": "664645359127d92f2c1f0e43a90a76676a8dfcfcb9f759f5352531b52605437f",
+      "12": "5ac25bb03326f8c33ec37416b2c7e224eadf4612ea04c483e98f5fd13c53d53b",
+      "13": "136e85444db80c238c63091df19214fda3046e68114552e463fde1fd85e4ddbd",
+      "14": "2990a128f284c1f9004c41fa9af7f73182311ec39bcbc037d259443abf4f9dfc",
+      "15": "e0123ccde214f786968de4ef1186e4a6abdfcf5775ca87b33672dd91628859fd",
+      "16": "f7cf85ae49fff717c619b48291f53f2fc5e2d27273561f5b1ccb1dcc9e5fae5b",
+      "17": "9f51eb3833a147346b38cf798693898f9daef6a64221c6c59b427b47d18c9b2b",
+      "18": "77c1bdb6990c6528155d421a5c7d8842e552d9b5a18844a97853de577a7483a3",
+      "19": "d69c5a14afab635b36639049955589c90877b16a0c9a000554e79e821cb9c754",
+      "20": "1c4ef068deb931e22443e93cda450b501fbd350f82eded4048bccb4181d51519"
+    }
   },
   "classplans": {
     "hash": "499f6215ea4cfee850edb5fd8890716e4adc386b9f412e3e5bfbd254b7594a6d",
@@ -36,5 +58,14 @@
       "19": "dfbaecb7a55f745e89eb986e39cbebef505cc0b726a36a7365511ccd9aeb47cf",
       "20": "a0c22a647582ccc329cd493d592a4a67aa8cc0dccbaa9bc147f47e502fa2e691"
     }
+  },
+  "policy": {
+    "hash": "7ccf79dd7cb21e65fdd12228fb07eb6447e7cb378055ca18c254bcbf0601859c",
+    "version": 1
+  },
+  "settings": {
+    "hash": "6684c933c31a05869aeec856734d1d3ff32aecb7f5af31ccc27c60c9049f7a80",
+    "version": 1,
+    "url": "https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/settings/default-settings.json"
   }
 }

@@ -7,8 +7,10 @@
   "generate_roster": false,
   "exclude_slot_patterns": ["看班"],
   "weekday_names": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"],
+  "// emit_default_settings": "是否生成 settings/default-settings.json 并在清单里挂 DefaultSettingsSource，把「学期开始时间」写进客户端。仅对未完成欢迎向导的全新实例生效，且会整体替换 Settings.json（其余项取客户端默认值），所以这里只放这一个字段。不需要时改为 false。",
+  "emit_default_settings": true,
   "week_cycle": {
-    "//": "两周轮换（单双周）。return_week_monday = 返校周的周一（该周周五全天正常）；回家周的周五下午提前：home_week_friday_first_class 上课、home_week_friday_school_over 放学。班级机需把客户端「设置 → 常规 → 学期首日」设为 return_week_monday 的前一天（周日）。放寒暑假或轮换节奏变化时，更新 return_week_monday 后重新构建。",
+    "//": "两周轮换（单双周）。return_week_monday = 返校周的周一（该周周五全天正常）；回家周的周五下午提前：home_week_friday_first_class 上课、home_week_friday_school_over 放学。客户端「设置 → 常规 → 学期开始时间」应等于 return_week_monday 的前一天（周日）。放寒暑假或轮换节奏变化时，更新 return_week_monday 后重新构建；已初始化过的机器仍需人工核对一次该日期。",
     "enabled": true,
     "return_week_monday": "2026-11-23",
     "home_week_friday_first_class": "12:20",

@@ -1,0 +1,71 @@
+{
+  "Name": "高一10班 科目（自动生成，仅含本班任课教师）",
+  "Subjects": {
+    "053b1fd0-fd9a-5b31-a5d1-85ed24602cc5": {
+      "Name": "自习",
+      "Initial": "自",
+      "TeacherName": "王宁",
+      "IsOutDoor": false
+    },
+    "2e44da36-369b-54f8-95f9-1e9866106513": {
+      "Name": "自习",
+      "Initial": "自",
+      "TeacherName": "刘福学",
+      "IsOutDoor": false
+    },
+    "36850301-ed1e-55a1-baf2-ff60a5cca5e5": {
+      "Name": "语文",
+      "Initial": "语",
+      "TeacherName": "王仁良",
+      "IsOutDoor": false
+    },
+    "3fdee64a-cf67-56ac-9c4c-75f9ea8a30d4": {
+      "Name": "数学",
+      "Initial": "数",
+      "TeacherName": "刘福学",
+      "IsOutDoor": false
+    },
+    "4a9b9030-bde9-55ad-baa0-c96fee36d7f2": {
+      "Name": "自习",
+      "Initial": "自",
+      "TeacherName": "李潇潇",
+      "IsOutDoor": false
+    },
+    "6f6c8537-a128-5e10-b5cf-579bab98aef2": {
+      "Name": "英语",
+      "Initial": "英",
+      "TeacherName": "李潇潇",
+      "IsOutDoor": false
+    },
+    "8a2b4fe0-ef99-5b56-bf50-19e6b01e746b": {
+      "Name": "自习",
+      "Initial": "自",
+      "TeacherName": "于少丽",
+      "IsOutDoor": false
+    },
+    "9013a5a4-5165-50e5-8fa3-48b77e3a8736": {
+      "Name": "体育",
+      "Initial": "体",
+      "TeacherName": "崔得入",
+      "IsOutDoor": true
+    },
+    "b8108088-d618-5ce9-a76b-2998afac2085": {
+      "Name": "物理",
+      "Initial": "物",
+      "TeacherName": "马校长",
+      "IsOutDoor": false
+    },
+    "b8875084-2389-5767-baac-97406d1d13c5": {
+      "Name": "化学",
+      "Initial": "化",
+      "TeacherName": "于少丽",
+      "IsOutDoor": false
+    },
+    "e61eee7e-649f-55fb-8161-c15d09282d8a": {
+      "Name": "生物",
+      "Initial": "生",
+      "TeacherName": "王宁",
+      "IsOutDoor": false
+    }
+  }
+}

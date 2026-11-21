@@ -1,0 +1,65 @@
+{
+  "Name": "高一17班 科目（自动生成，仅含本班任课教师）",
+  "Subjects": {
+    "061a979b-0aed-57b9-9436-74668c7361c6": {
+      "Name": "数学",
+      "Initial": "数",
+      "TeacherName": "马锦华",
+      "IsOutDoor": false
+    },
+    "652a0d7c-9b2b-5f6c-b5b8-83306c0f5e8b": {
+      "Name": "历史",
+      "Initial": "历",
+      "TeacherName": "李磊",
+      "IsOutDoor": false
+    },
+    "83ab1837-fe49-5ef5-8c15-78f3c9816622": {
+      "Name": "生物",
+      "Initial": "生",
+      "TeacherName": "张笑",
+      "IsOutDoor": false
+    },
+    "a1f394a2-2d78-52a0-bc34-46e46fa21e9d": {
+      "Name": "语文",
+      "Initial": "语",
+      "TeacherName": "王若男",
+      "IsOutDoor": false
+    },
+    "b98ac4c9-f80a-5087-be86-1d4e6e7a1567": {
+      "Name": "物理",
+      "Initial": "物",
+      "TeacherName": "赵海杰",
+      "IsOutDoor": false
+    },
+    "d521a0df-0a7a-5baa-8b66-01378d95418d": {
+      "Name": "体育",
+      "Initial": "体",
+      "TeacherName": "刘嘉显",
+      "IsOutDoor": true
+    },
+    "d56fbf6f-9a71-5406-8f5e-c5e12268f8e7": {
+      "Name": "政治",
+      "Initial": "政",
+      "TeacherName": "吴燕双",
+      "IsOutDoor": false
+    },
+    "d64f1635-0bc5-5abf-a710-167a96e0c678": {
+      "Name": "化学",
+      "Initial": "化",
+      "TeacherName": "石俊楠",
+      "IsOutDoor": false
+    },
+    "e8ed3185-9237-599e-a9e4-5cda419658e6": {
+      "Name": "英语",
+      "Initial": "英",
+      "TeacherName": "盖雨帆",
+      "IsOutDoor": false
+    },
+    "f36af6cf-ba6e-5470-8f70-e38669f56b5c": {
+      "Name": "地理",
+      "Initial": "地",
+      "TeacherName": "杨廷富",
+      "IsOutDoor": false
+    }
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "Name": "高一11班 科目（自动生成，仅含本班任课教师）",
+  "Subjects": {
+    "171b09ac-c7e8-5085-82e7-af11f08d48c4": {
+      "Name": "物理",
+      "Initial": "物",
+      "TeacherName": "邹",
+      "IsOutDoor": false
+    },
+    "2754fb01-1259-59d4-a7a2-7f5760e39abc": {
+      "Name": "英语",
+      "Initial": "英",
+      "TeacherName": "葛玉凤",
+      "IsOutDoor": false
+    },
+    "38276acd-a654-59b2-bbdf-80c1f58e4fee": {
+      "Name": "历史",
+      "Initial": "历",
+      "TeacherName": "孙良胜",
+      "IsOutDoor": false
+    },
+    "83ab1837-fe49-5ef5-8c15-78f3c9816622": {
+      "Name": "生物",
+      "Initial": "生",
+      "TeacherName": "张笑",
+      "IsOutDoor": false
+    },
+    "a52c6b9c-11f4-5b81-8e3a-e6f3397f17a7": {
+      "Name": "化学",
+      "Initial": "化",
+      "TeacherName": "孙伟婷",
+      "IsOutDoor": false
+    },
+    "ad37b9a6-6fd4-51af-8912-56e382013355": {
+      "Name": "政治",
+      "Initial": "政",
+      "TeacherName": "杨子璇",
+      "IsOutDoor": false
+    },
+    "b5b8616c-e22e-58dc-af2c-88eadf36ad7c": {
+      "Name": "数学",
+      "Initial": "数",
+      "TeacherName": "邢方圆",
+      "IsOutDoor": false
+    },
+    "b5f4d0dc-9f18-5c23-ac14-f6b325e2fe68": {
+      "Name": "语文",
+      "Initial": "语",
+      "TeacherName": "杨波",
+      "IsOutDoor": false
+    },
+    "d521a0df-0a7a-5baa-8b66-01378d95418d": {
+      "Name": "体育",
+      "Initial": "体",
+      "TeacherName": "刘嘉显",
+      "IsOutDoor": true
+    },
+    "dbccca58-d6c9-55b8-8eda-12210e0a7098": {
+      "Name": "地理",
+      "Initial": "地",
+      "TeacherName": "方芸芸",
+      "IsOutDoor": false
+    }
+  }
+}

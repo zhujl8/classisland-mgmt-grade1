@@ -1,0 +1,47 @@
+{
+  "Name": "高一14班 科目（自动生成，仅含本班任课教师）",
+  "Subjects": {
+    "3de53d70-44a3-5e0b-a635-df24335aea22": {
+      "Name": "物理",
+      "Initial": "物",
+      "TeacherName": "袁高中",
+      "IsOutDoor": false
+    },
+    "3fdee64a-cf67-56ac-9c4c-75f9ea8a30d4": {
+      "Name": "数学",
+      "Initial": "数",
+      "TeacherName": "刘福学",
+      "IsOutDoor": false
+    },
+    "b8875084-2389-5767-baac-97406d1d13c5": {
+      "Name": "化学",
+      "Initial": "化",
+      "TeacherName": "于少丽",
+      "IsOutDoor": false
+    },
+    "d521a0df-0a7a-5baa-8b66-01378d95418d": {
+      "Name": "体育",
+      "Initial": "体",
+      "TeacherName": "刘嘉显",
+      "IsOutDoor": true
+    },
+    "e61eee7e-649f-55fb-8161-c15d09282d8a": {
+      "Name": "生物",
+      "Initial": "生",
+      "TeacherName": "王宁",
+      "IsOutDoor": false
+    },
+    "e6ccb32d-33a5-5f17-87c3-d816a4251617": {
+      "Name": "语文",
+      "Initial": "语",
+      "TeacherName": "董珂艺",
+      "IsOutDoor": false
+    },
+    "ed55679b-c69f-5021-935f-ddfe905222f4": {
+      "Name": "英语",
+      "Initial": "英",
+      "TeacherName": "周晓宸",
+      "IsOutDoor": false
+    }
+  }
+}

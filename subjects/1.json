@@ -1,0 +1,65 @@
+{
+  "Name": "高一1班 科目（自动生成，仅含本班任课教师）",
+  "Subjects": {
+    "3408b55a-d60c-5e77-b2bd-2fc0acf01979": {
+      "Name": "语文",
+      "Initial": "语",
+      "TeacherName": "李文",
+      "IsOutDoor": false
+    },
+    "3603428a-39f7-54f1-b73a-2ffb7eba06b1": {
+      "Name": "数学",
+      "Initial": "数",
+      "TeacherName": "宫莹莹",
+      "IsOutDoor": false
+    },
+    "38276acd-a654-59b2-bbdf-80c1f58e4fee": {
+      "Name": "历史",
+      "Initial": "历",
+      "TeacherName": "孙良胜",
+      "IsOutDoor": false
+    },
+    "39b06382-fb9f-5f46-87b6-f9b55d9e96bc": {
+      "Name": "生物",
+      "Initial": "生",
+      "TeacherName": "贺嘉懿",
+      "IsOutDoor": false
+    },
+    "55684905-83cb-503a-aaab-55d952ae60a2": {
+      "Name": "政治",
+      "Initial": "政",
+      "TeacherName": "庞松鹏",
+      "IsOutDoor": false
+    },
+    "6c1c9549-6cbf-580d-a26d-122a488bf32a": {
+      "Name": "物理",
+      "Initial": "物",
+      "TeacherName": "李昊硕",
+      "IsOutDoor": false
+    },
+    "7ad16cbc-752f-5d3a-a065-c6620904dcd8": {
+      "Name": "化学",
+      "Initial": "化",
+      "TeacherName": "李嘉",
+      "IsOutDoor": false
+    },
+    "9fe85b8d-c75d-5d0a-939d-a818fb1745c3": {
+      "Name": "体育",
+      "Initial": "体",
+      "TeacherName": "代焕庆",
+      "IsOutDoor": true
+    },
+    "d136fa6d-6b32-5f73-bfb3-f8c620b7fd46": {
+      "Name": "英语",
+      "Initial": "英",
+      "TeacherName": "王晓燕",
+      "IsOutDoor": false
+    },
+    "dbccca58-d6c9-55b8-8eda-12210e0a7098": {
+      "Name": "地理",
+      "Initial": "地",
+      "TeacherName": "方芸芸",
+      "IsOutDoor": false
+    }
+  }
+}

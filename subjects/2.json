@@ -1,0 +1,65 @@
+{
+  "Name": "高一2班 科目（自动生成，仅含本班任课教师）",
+  "Subjects": {
+    "169a08de-682c-55b5-a266-22437aff772b": {
+      "Name": "语文",
+      "Initial": "语",
+      "TeacherName": "赵亚鑫",
+      "IsOutDoor": false
+    },
+    "3363630b-e600-580a-a832-e00012069970": {
+      "Name": "物理",
+      "Initial": "物",
+      "TeacherName": "王向荣",
+      "IsOutDoor": false
+    },
+    "38276acd-a654-59b2-bbdf-80c1f58e4fee": {
+      "Name": "历史",
+      "Initial": "历",
+      "TeacherName": "孙良胜",
+      "IsOutDoor": false
+    },
+    "55684905-83cb-503a-aaab-55d952ae60a2": {
+      "Name": "政治",
+      "Initial": "政",
+      "TeacherName": "庞松鹏",
+      "IsOutDoor": false
+    },
+    "768a89c0-7074-52f8-b251-dda2e4b9b772": {
+      "Name": "数学",
+      "Initial": "数",
+      "TeacherName": "杜恒国",
+      "IsOutDoor": false
+    },
+    "7ad16cbc-752f-5d3a-a065-c6620904dcd8": {
+      "Name": "化学",
+      "Initial": "化",
+      "TeacherName": "李嘉",
+      "IsOutDoor": false
+    },
+    "9fe85b8d-c75d-5d0a-939d-a818fb1745c3": {
+      "Name": "体育",
+      "Initial": "体",
+      "TeacherName": "代焕庆",
+      "IsOutDoor": true
+    },
+    "c7452a24-15fb-53fd-9bc2-655b77f5c75d": {
+      "Name": "生物",
+      "Initial": "生",
+      "TeacherName": "王语婷",
+      "IsOutDoor": false
+    },
+    "dbccca58-d6c9-55b8-8eda-12210e0a7098": {
+      "Name": "地理",
+      "Initial": "地",
+      "TeacherName": "方芸芸",
+      "IsOutDoor": false
+    },
+    "e75f35e5-a08f-52c1-8c91-06f8b6cd0e93": {
+      "Name": "英语",
+      "Initial": "英",
+      "TeacherName": "王颖",
+      "IsOutDoor": false
+    }
+  }
+}

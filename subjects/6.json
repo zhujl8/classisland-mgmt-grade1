@@ -1,0 +1,65 @@
+{
+  "Name": "高一6班 科目（自动生成，仅含本班任课教师）",
+  "Subjects": {
+    "4725636b-c44e-5f2f-90b8-f6edfe28eaca": {
+      "Name": "生物",
+      "Initial": "生",
+      "TeacherName": "姜在钊",
+      "IsOutDoor": false
+    },
+    "9fe85b8d-c75d-5d0a-939d-a818fb1745c3": {
+      "Name": "体育",
+      "Initial": "体",
+      "TeacherName": "代焕庆",
+      "IsOutDoor": true
+    },
+    "a0860f35-81d4-544e-be34-6792902e0ce5": {
+      "Name": "数学",
+      "Initial": "数",
+      "TeacherName": "孙爱花",
+      "IsOutDoor": false
+    },
+    "a3ea90bf-d0dd-5ec8-89db-e7efe19d4dd1": {
+      "Name": "地理",
+      "Initial": "地",
+      "TeacherName": "李明蔚",
+      "IsOutDoor": false
+    },
+    "ad37b9a6-6fd4-51af-8912-56e382013355": {
+      "Name": "政治",
+      "Initial": "政",
+      "TeacherName": "杨子璇",
+      "IsOutDoor": false
+    },
+    "b796657a-202b-5904-bf5e-f3a025ca3061": {
+      "Name": "历史",
+      "Initial": "历",
+      "TeacherName": "卢鹏清",
+      "IsOutDoor": false
+    },
+    "b98ac4c9-f80a-5087-be86-1d4e6e7a1567": {
+      "Name": "物理",
+      "Initial": "物",
+      "TeacherName": "赵海杰",
+      "IsOutDoor": false
+    },
+    "c7bcfdf4-9490-54aa-88bb-f7c3019e66b6": {
+      "Name": "语文",
+      "Initial": "语",
+      "TeacherName": "杨帆",
+      "IsOutDoor": false
+    },
+    "f610c11e-a946-5f8c-96d2-11fda9454464": {
+      "Name": "英语",
+      "Initial": "英",
+      "TeacherName": "孙香芹",
+      "IsOutDoor": false
+    },
+    "fcd9064e-663b-5109-85fb-e1e76f887b9a": {
+      "Name": "化学",
+      "Initial": "化",
+      "TeacherName": "李一乐",
+      "IsOutDoor": false
+    }
+  }
+}

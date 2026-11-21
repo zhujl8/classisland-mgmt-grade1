@@ -1,0 +1,65 @@
+{
+  "Name": "高一15班 科目（自动生成，仅含本班任课教师）",
+  "Subjects": {
+    "3363630b-e600-580a-a832-e00012069970": {
+      "Name": "物理",
+      "Initial": "物",
+      "TeacherName": "王向荣",
+      "IsOutDoor": false
+    },
+    "38276acd-a654-59b2-bbdf-80c1f58e4fee": {
+      "Name": "历史",
+      "Initial": "历",
+      "TeacherName": "孙良胜",
+      "IsOutDoor": false
+    },
+    "6e3c03f4-b311-526b-a0de-05d576193892": {
+      "Name": "化学",
+      "Initial": "化",
+      "TeacherName": "杨雪",
+      "IsOutDoor": false
+    },
+    "a0860f35-81d4-544e-be34-6792902e0ce5": {
+      "Name": "数学",
+      "Initial": "数",
+      "TeacherName": "孙爱花",
+      "IsOutDoor": false
+    },
+    "a3ea90bf-d0dd-5ec8-89db-e7efe19d4dd1": {
+      "Name": "地理",
+      "Initial": "地",
+      "TeacherName": "李明蔚",
+      "IsOutDoor": false
+    },
+    "c7452a24-15fb-53fd-9bc2-655b77f5c75d": {
+      "Name": "生物",
+      "Initial": "生",
+      "TeacherName": "王语婷",
+      "IsOutDoor": false
+    },
+    "d403abc9-1823-5b96-9146-fa04b64b7009": {
+      "Name": "英语",
+      "Initial": "英",
+      "TeacherName": "申文轩",
+      "IsOutDoor": false
+    },
+    "d521a0df-0a7a-5baa-8b66-01378d95418d": {
+      "Name": "体育",
+      "Initial": "体",
+      "TeacherName": "刘嘉显",
+      "IsOutDoor": true
+    },
+    "d56fbf6f-9a71-5406-8f5e-c5e12268f8e7": {
+      "Name": "政治",
+      "Initial": "政",
+      "TeacherName": "吴燕双",
+      "IsOutDoor": false
+    },
+    "e6ccb32d-33a5-5f17-87c3-d816a4251617": {
+      "Name": "语文",
+      "Initial": "语",
+      "TeacherName": "董珂艺",
+      "IsOutDoor": false
+    }
+  }
+}

@@ -7,6 +7,7 @@ build.py —— 拉取课程表源数据并生成 ClassIsland 静态集控档案
   源站 API (duanjr.site /tools/class_schedule/api/schedule)
       → 本脚本抓取、校验、转换
       → subjects.json / timelayouts.json / classplans/{id}.json / presets/
+      → settings/default-settings.json（可选，下发学期开始时间）
       → manifest.json（内容变化时自动递增 Version）
       → git 提交推送 → ClassIsland 客户端按集控清单拉取
 
@@ -15,9 +16,11 @@ build.py —— 拉取课程表源数据并生成 ClassIsland 静态集控档案
     - 周一~周四课表每周生效（TimeRule.WeekCountDiv = 0）；
     - 周五拆成两张课表：返校周（WeekCountDiv = 1，正常时间表）
       与回家周（WeekCountDiv = 2，下午提前：12:20 上课、14:55 放学）；
-    - 客户端以「设置 → 常规 → 学期首日」为起点计算当周处于第 1/2 周，
-      自动切换两张周五课表。学期首日 = return_week_monday 的前一天（周日），
-      构建摘要与 README 中会给出该日期。
+    - 客户端以「设置 → 常规 → 学期开始时间」（即 SingleWeekStartTime）为起点，
+      计算当周处于第 1/2 周，自动切换两张周五课表。该日期 = return_week_monday
+      的前一天（周日）；emit_default_settings 打开时，脚本还会生成
+      settings/default-settings.json 并经 DefaultSettingsSource 下发，
+      使全新安装的机器免手工设置（注意该设置源只在欢迎向导完成前生效）。
 
 零第三方依赖，仅需 Python 3.9+ 标准库。
 
@@ -32,6 +35,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import ssl
 import sys
 import time
@@ -85,7 +89,14 @@ CONFIG_DEFAULTS = {
     "exclude_slot_patterns": ["看班"],
     "weekday_names": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"],
     "week_cycle": None,  # 两周轮换；结构见 build-config.json
+    # 是否通过集控清单的 DefaultSettingsSource 下发「学期首日」。
+    # 注意：ClassIsland 只在欢迎向导完成前应用该设置源（全新机器），且是整体替换 Settings.json。
+    "emit_default_settings": True,
 }
+
+# 「退场课表」的中和桩：不再生成、但仍需留在客户端档案里的课表会被改写为停用桩，
+# 避免"上一次有、这一次没有"的条目在客户端上无限期残留并继续参与当日匹配。
+RETIRED_PREFIX = "（已停用）"
 
 
 # ─────────────────────────── 工具函数 ───────────────────────────
@@ -403,6 +414,7 @@ def build_subjects_and_plans(data, included_indexes, weekday_names, exclude_repo
     slot_teachers = data.get("slot_teachers", {})
     subjects = {}
     classplans_by_class = {}
+    friday_weekday = weekday_names.index("周五") + 1 if "周五" in weekday_names else -1
 
     for cid in sorted(schedule.keys(), key=int):
         grid = schedule[cid]
@@ -412,9 +424,9 @@ def build_subjects_and_plans(data, included_indexes, weekday_names, exclude_repo
 
         for day_index, row in enumerate(grid):
             day_name = data["days"][day_index]
-            weekday = weekday_names.index(day_name) + 1  # ClassIsland WeekDay：周一=1 … 周日=7
-            if weekday == 0:
+            if day_name not in weekday_names:
                 raise RuntimeError(f"无法识别的星期名：{day_name!r}")
+            weekday = weekday_names.index(day_name) + 1  # ClassIsland WeekDay：周一=1 … 周日=7
             classes = []
             for slot_index in included_indexes:
                 name = str(row[slot_index]).strip()
@@ -435,21 +447,30 @@ def build_subjects_and_plans(data, included_indexes, weekday_names, exclude_repo
                 )
                 classes.append({"SubjectId": subject_id, "IsEnabled": True})
 
-            if weekday == 5 and week_cycle and friday_home_layout_id:
-                # 两周轮换：周五拆成「返校周」（第 1 周）与「回家周」（第 2 周）两张课表，
-                # 客户端按 Settings.SingleWeekStartTime（学期首日）自动切换。
-                friday_variants = (
-                    ("return", 1, TIME_LAYOUT_ID, f"{day_name}（返校周）"),
-                    ("home", 2, friday_home_layout_id, f"{day_name}（回家周 · 提前放学）"),
-                )
-                for suffix, week_div, layout_id, label in friday_variants:
+            if weekday == friday_weekday:
+                # 周五恒定输出两张课表，GUID 不随配置变化 —— 无论 week_cycle 开关如何，
+                # 生成结果都是"覆盖"同一批条目，客户端上不会出现新旧两张周五课表并存、
+                # 同一天多重命中的情况（集控合并不删除旧条目，只能靠同名键覆盖）。
+                #   week_cycle 开启：返校周（第 1 周）+ 回家周（第 2 周）两张都启用；
+                #   week_cycle 关闭：第一张改为每周生效，第二张写为 IsEnabled=false 的停用桩。
+                if week_cycle and friday_home_layout_id:
+                    variants = (
+                        ("return", 1, TIME_LAYOUT_ID, f"{day_name}（返校周）", True),
+                        ("home", 2, friday_home_layout_id, f"{day_name}（回家周 · 提前放学）", True),
+                    )
+                else:
+                    variants = (
+                        ("return", 0, TIME_LAYOUT_ID, day_name, True),
+                        ("home", 0, TIME_LAYOUT_ID, f"{day_name}（回家周 · 已停用）", False),
+                    )
+                for suffix, week_div, layout_id, label, enabled in variants:
                     plan_id = guid_of("classplan", cid, str(weekday), suffix)
                     plans[plan_id] = {
                         "Name": f"高一{class_number}班 · {label}",
                         "TimeLayoutId": layout_id,
                         "TimeRule": {"WeekDay": weekday, "WeekCountDiv": week_div, "WeekCountDivTotal": 2},
                         "Classes": [dict(item) for item in classes],
-                        "IsEnabled": True,
+                        "IsEnabled": enabled,
                         "AssociatedGroup": GLOBAL_GROUP_GUID,
                     }
             else:
@@ -465,6 +486,40 @@ def build_subjects_and_plans(data, included_indexes, weekday_names, exclude_repo
         classplans_by_class[cid] = plans
 
     return subjects, classplans_by_class
+
+
+def load_previous_plans(cid: str) -> dict:
+    """读取仓库中上一次生成的班级档案，用于识别退场（不再生成）的课表。"""
+    path = os.path.join(REPO_ROOT, "classplans", f"{cid}.json")
+    doc = load_json_file(path)
+    if not isinstance(doc, dict):
+        return {}
+    plans = doc.get("ClassPlans")
+    return plans if isinstance(plans, dict) else {}
+
+
+def neutralize_plan(plan: dict) -> dict:
+    """把退场课表改写为停用桩：不可命中、时间表引用保持有效、名称带退场标记。
+
+    幂等：已是停用桩的条目不重复加前缀，可反复构建。
+    """
+    stub = json.loads(json.dumps(plan, ensure_ascii=False))
+    stub["IsEnabled"] = False
+    stub["TimeLayoutId"] = TIME_LAYOUT_ID  # 避免引用可能已被删除的时间表
+    name = str(stub.get("Name") or "")
+    if not name.startswith(RETIRED_PREFIX):
+        stub["Name"] = RETIRED_PREFIX + name
+    return stub
+
+
+def merge_retired_plans(plans: dict, previous: dict) -> dict:
+    """把上一次有、这一次没有的课表以停用桩的形式合并回来，确保客户端上不会残留可命中的旧课表。"""
+    merged = {plan_id: json.loads(json.dumps(plan, ensure_ascii=False)) for plan_id, plan in plans.items()}
+    for plan_id, plan in previous.items():
+        if plan_id in merged:
+            continue
+        merged[plan_id] = neutralize_plan(plan)
+    return merged
 
 
 # ─────────────────────────── 版本与状态管理 ───────────────────────────
@@ -509,12 +564,10 @@ def main() -> int:
     data = fetch_source(cfg["source_url"], args.source_file)
     slots, times = data["slots"], data["times"]
 
-    import re as _re
-
     patterns = [p for p in cfg["exclude_slot_patterns"] if p]
     included_indexes = [
         i for i, name in enumerate(slots)
-        if not any(_re.search(pattern, str(name)) for pattern in patterns)
+        if not any(re.search(pattern, str(name)) for pattern in patterns)
     ]
     excluded = [slots[i] for i in range(len(slots)) if i not in included_indexes]
     if not included_indexes:
@@ -536,8 +589,9 @@ def main() -> int:
             f"{cycle['first_class'][:5]} 上课、{cycle['school_over'][:5]} 放学。"
         )
         print(
-            "客户端「设置 → 常规 → 学期首日」需设为 "
-            f"{cycle['semester_start'].strftime('%Y-%m-%d')}（周日），单双周才会正确轮换。"
+            "客户端「设置 → 常规 → 学期开始时间」需为 "
+            f"{cycle['semester_start'].strftime('%Y-%m-%d')}（周日），单双周才会正确轮换"
+            + ("（全新机器将由 DefaultSettingsSource 自动写入）。" if bool(cfg.get("emit_default_settings", True)) else "。")
         )
 
     # ── 生成档案 ──
@@ -557,8 +611,44 @@ def main() -> int:
 
     subject_count = len(subjects)
     class_ids = sorted(classplans_by_class.keys(), key=int)
+
+    # 退场课表中和：上一次有、这一次没有的条目改写为停用桩，避免客户端上残留可命中的旧课表
+    retired_count = 0
+    for cid in class_ids:
+        previous = load_previous_plans(cid)
+        merged = merge_retired_plans(classplans_by_class[cid], previous)
+        retired_count += sum(1 for pid in merged if pid not in classplans_by_class[cid])
+        classplans_by_class[cid] = merged
+
+    # 科表按班级拆分：集控的 SubjectsSource 支持 {id} 模板，每台设备只下载本班用到的
+    # 「科目+教师」条目，避免每块班级屏上都塞进全年级 78 个教师条目（也缩小了姓名暴露面）。
+    subject_files = {}
+    per_class_subject_counts = {}
+    for cid in class_ids:
+        used = set()
+        for plan in classplans_by_class[cid].values():
+            for item in plan.get("Classes") or []:
+                subject_id = item.get("SubjectId")
+                if item.get("IsEnabled") and subject_id and subject_id != ZERO_GUID:
+                    used.add(subject_id)
+        missing = [sid for sid in used if sid not in subjects]
+        if missing:
+            raise RuntimeError(f"班级 {cid} 的课表引用了未生成的科目：{missing}")
+        subject_files[cid] = {
+            "Name": f"高一{int(cid)}班 科目（自动生成，仅含本班任课教师）",
+            "Subjects": {sid: subjects[sid] for sid in sorted(used)},
+        }
+        per_class_subject_counts[cid] = len(used)
+
     plans_per_class = len(next(iter(classplans_by_class.values()))) if classplans_by_class else 0
-    print(f"生成完成：{len(class_ids)} 个班 × 每班 {plans_per_class} 张日课表，{lesson_count} 节/天，科目 {subject_count} 个。")
+    subject_count_min = min(per_class_subject_counts.values()) if per_class_subject_counts else 0
+    subject_count_max = max(per_class_subject_counts.values()) if per_class_subject_counts else 0
+    print(
+        f"生成完成：{len(class_ids)} 个班 × 每班 {plans_per_class} 张日课表，{lesson_count} 节/天；"
+        f"科目按班拆分（全年级 {subject_count} 条，每班 {subject_count_min}–{subject_count_max} 条）。"
+    )
+    if retired_count:
+        print(f"其中 {retired_count} 张为已退场课表的停用桩（IsEnabled=false，不影响当日命中）。")
 
     timelayouts_map = {TIME_LAYOUT_ID: {"Name": "高一统一时间表", "Layouts": layouts}}
     if cycle:
@@ -570,8 +660,6 @@ def main() -> int:
         "Name": "高一统一时间表（自动生成）",
         "TimeLayouts": timelayouts_map,
     }
-    subjects_profile = {"Name": "高一科目总表（自动生成）", "Subjects": subjects}
-
     classplan_files = {}
     for cid in class_ids:
         classplan_files[cid] = {
@@ -581,40 +669,78 @@ def main() -> int:
 
     classplans_bundle_hash = sha256_text(canonical_text(classplan_files))
     timelayouts_hash = sha256_text(canonical_text(timelayouts_profile))
-    subjects_hash = sha256_text(canonical_text(subjects_profile))
+    subjects_hash = sha256_text(canonical_text(subject_files))
     # 课表依赖时间表（Classes 数量必须与时间表上课点一致），时间表变化时同步刷新课表版本
     classplans_hash = sha256_text(classplans_bundle_hash + timelayouts_hash)
 
     urls = {
         "classplans": f"{base_url}/classplans/{{id}}.json",
         "timelayouts": f"{base_url}/timelayouts.json",
-        "subjects": f"{base_url}/subjects.json",
+        "subjects": f"{base_url}/subjects/{{id}}.json",
         "policy": f"{base_url}/policy.json",
+        "settings": f"{base_url}/settings/default-settings.json",
     }
 
+    # ── 默认设置源（下发「学期首日」）──
+    # 只有相对全新（未完成欢迎向导）的实例才会应用该设置源，且是整体替换 Settings.json；
+    # 因此这里只放重启关键项的取值，其余字段由客户端按内置默认值填充。
+    emit_settings = bool(cfg.get("emit_default_settings", True)) and cycle is not None
+    settings_profile = None
+    settings_hash = None
+    if emit_settings:
+        settings_profile = {"SingleWeekStartTime": cycle["semester_start"].strftime("%Y-%m-%dT00:00:00")}
+        settings_hash = sha256_text(canonical_text(settings_profile))
+
     # ── 版本管理 ──
-    # 保留管理员手动维护的 PolicySource.Version（policy.json 不由本脚本管理）
     existing_manifest = load_json_file(os.path.join(REPO_ROOT, "manifest.json"))
-    policy_version = 1
+    manifest_policy_version = 1
     if existing_manifest and isinstance(existing_manifest.get("PolicySource"), dict):
         raw_version = existing_manifest["PolicySource"].get("Version", existing_manifest["PolicySource"].get("version", 1))
         try:
-            policy_version = max(int(raw_version or 1), 1)
+            manifest_policy_version = max(int(raw_version or 1), 1)
         except (TypeError, ValueError):
-            policy_version = 1
+            manifest_policy_version = 1
 
     state = load_json_file(STATE_PATH) or {}
     versions = {}
     changes = {}
-    for key, new_hash in (
+    version_jobs = [
         ("timelayouts", timelayouts_hash),
         ("subjects", subjects_hash),
         ("classplans", classplans_hash),
-    ):
+    ]
+    if emit_settings:
+        version_jobs.append(("settings", settings_hash))
+    for key, new_hash in version_jobs:
         entry = state.get(key, {})
         version, changed = bump(entry, new_hash, urls[key], args.force_bump)
         versions[key] = version
         changes[key] = changed
+
+    # policy.json 由管理员维护、内容不由脚本生成，但版本号改为按内容哈希自动维护，
+    # 避免"改了策略却忘了给 PolicySource.Version +1，客户端永远拿不到"。
+    policy_hash = None
+    policy_changed = False
+    policy_version = manifest_policy_version
+    policy_doc = load_json_file(os.path.join(REPO_ROOT, "policy.json"))
+    if isinstance(policy_doc, dict):
+        policy_hash = sha256_text(canonical_text(policy_doc))
+        state_policy = state.get("policy") if isinstance(state.get("policy"), dict) else {}
+        try:
+            stored_version = max(int(state_policy.get("version") or 1), 1)
+        except (TypeError, ValueError):
+            stored_version = 1
+        stored_hash = state_policy.get("hash")
+        if stored_hash is None:
+            policy_version = max(manifest_policy_version, 1)
+        elif stored_hash != policy_hash:
+            policy_version = max(manifest_policy_version, stored_version + 1)
+            policy_changed = True
+        else:
+            policy_version = max(manifest_policy_version, stored_version)
+        if args.force_bump and not policy_changed:
+            policy_version = max(manifest_policy_version, stored_version + 1)
+            policy_changed = True
 
     # 课表逐班变更明细（用于摘要展示）
     old_file_hashes = state.get("classplans", {}).get("files", {})
@@ -627,12 +753,40 @@ def main() -> int:
     if args.dry_run:
         print("（dry-run 模式：不写任何文件）")
     else:
+        # 清掉源数据里已不存在的班级遗留文件（否则会一直留在仓库里）
+        classplans_dir = os.path.join(REPO_ROOT, "classplans")
+        presets_dir = os.path.join(REPO_ROOT, "presets")
+        for directory, pattern, keep in (
+            (classplans_dir, re.compile(r"^(\d+)\.json$"), set(class_ids)),
+            (presets_dir, re.compile(r"^ManagementPreset-(\d+)\.json$"), set(class_ids)),
+        ):
+            if not os.path.isdir(directory):
+                continue
+            for filename in sorted(os.listdir(directory)):
+                match = pattern.match(filename)
+                if match and match.group(1) not in keep:
+                    os.remove(os.path.join(directory, filename))
+                    print(f"已清理不再存在的班级文件：{os.path.relpath(os.path.join(directory, filename), REPO_ROOT)}")
+
         for cid, profile in classplan_files.items():
             dump_json(profile, os.path.join(REPO_ROOT, "classplans", f"{cid}.json"))
         dump_json(timelayouts_profile, os.path.join(REPO_ROOT, "timelayouts.json"))
-        dump_json(subjects_profile, os.path.join(REPO_ROOT, "subjects.json"))
+        subjects_dir = os.path.join(REPO_ROOT, "subjects")
+        os.makedirs(subjects_dir, exist_ok=True)
+        for cid, profile in subject_files.items():
+            dump_json(profile, os.path.join(subjects_dir, f"{cid}.json"))
+        for filename in sorted(os.listdir(subjects_dir)):
+            match = re.match(r"^(\d+)\.json$", filename)
+            if match and match.group(1) not in set(class_ids):
+                os.remove(os.path.join(subjects_dir, filename))
+                print(f"已清理不再存在的科目文件：subjects/{filename}")
+        # 旧的全局科目总表（会把全年级教师姓名塞给每台设备）已弃用，构建时顺手删除
+        legacy_subjects = os.path.join(REPO_ROOT, "subjects.json")
+        if os.path.exists(legacy_subjects):
+            os.remove(legacy_subjects)
+            print("已移除旧的全局科目总表 subjects.json（改为按班级拆分 subjects/{id}.json）")
 
-        # 客户端预设文件（复制到班级机 ClassIsland 安装目录，打开应用即可一键加入集控）
+        # 客户端预设文件（放到数据目录并重命名为 ManagementPreset.json，加入管理时会自动加载）
         for cid in class_ids:
             preset = {
                 "ManagementServerKind": 0,
@@ -643,7 +797,15 @@ def main() -> int:
             }
             dump_json(preset, os.path.join(REPO_ROOT, "presets", f"ManagementPreset-{cid}.json"))
 
-        # manifest.json：其余版本号由本脚本管理
+        # 默认设置源（仅用于下发学期首日；不含则删除旧文件，避免清单与文件不一致）
+        settings_path = os.path.join(REPO_ROOT, "settings", "default-settings.json")
+        if emit_settings:
+            dump_json(settings_profile, settings_path)
+        elif os.path.exists(settings_path):
+            os.remove(settings_path)
+            print("已移除 settings/default-settings.json（week_cycle 未启用或已关闭下发）")
+
+        # manifest.json：版本号由本脚本维护
         manifest = {
             "ServerKind": 0,
             "OrganizationName": cfg["organization_name"],
@@ -653,20 +815,30 @@ def main() -> int:
             "SubjectsSource": {"Value": urls["subjects"], "Version": versions["subjects"]},
             "PolicySource": {"Value": urls["policy"], "Version": policy_version},
         }
+        if emit_settings:
+            manifest["DefaultSettingsSource"] = {"Value": urls["settings"], "Version": versions["settings"]}
         dump_json(manifest, os.path.join(REPO_ROOT, "manifest.json"))
 
         # 状态文件（内容派生，无时间戳，保证 git 历史干净）
         new_state = {
             "base_url": base_url,
             "timelayouts": {"hash": timelayouts_hash, "version": versions["timelayouts"], "url": urls["timelayouts"]},
-            "subjects": {"hash": subjects_hash, "version": versions["subjects"], "url": urls["subjects"]},
+            "subjects": {
+                "hash": subjects_hash,
+                "version": versions["subjects"],
+                "url": urls["subjects"],
+                "files": {cid: sha256_text(canonical_text(subject_files[cid])) for cid in class_ids},
+            },
             "classplans": {
                 "hash": classplans_hash,
                 "version": versions["classplans"],
                 "url": urls["classplans"],
                 "files": new_file_hashes,
             },
+            "policy": {"hash": policy_hash, "version": policy_version},
         }
+        if emit_settings:
+            new_state["settings"] = {"hash": settings_hash, "version": versions["settings"], "url": urls["settings"]}
         dump_json(new_state, STATE_PATH)
 
         # 源数据快照（供人工 diff 审查）
@@ -725,23 +897,27 @@ def main() -> int:
             "",
             f"- 源数据：{data.get('title', args.source_file)}（{args.source_file}）",
             f"- 抓取时间：{now}（北京时间）",
-            f"- 覆盖班级：{len(class_ids)} 个 ｜ 每日 {lesson_count} 节 ｜ 科目 {subject_count} 个",
+            f"- 覆盖班级：{len(class_ids)} 个 ｜ 每日 {lesson_count} 节 ｜ 科目每班 {subject_count_min}–{subject_count_max} 条（全年级 {subject_count} 条，按班分发）",
         ]
         if cycle:
             md += [
                 f"- 两周轮换：返校周锚点 {cycle['return_week_monday'].strftime('%Y-%m-%d')}（周一，周五正常）"
                 f"；回家周周五 {cycle['first_class'][:5]} 上课、{cycle['school_over'][:5]} 放学",
-                f"- **班级机必设**：「设置 → 常规 → 学期首日」= {cycle['semester_start'].strftime('%Y-%m-%d')}（周日），"
-                "单双周才会自动切换",
+                f"- **学期首日**（界面：「设置 → 常规 → 学期开始时间」）= {cycle['semester_start'].strftime('%Y-%m-%d')}（周日）",
+                "- 全新安装的机器会在欢迎向导前由 DefaultSettingsSource 自动写入该日期；已初始化过的机器仍需按上面的日期手工核对",
             ]
         md += [
             "",
             "| 档案 | 版本 | 状态 |",
             "| --- | --- | --- |",
             ver_line("timelayouts", "时间表 timelayouts.json"),
-            ver_line("subjects", "科目 subjects.json"),
+            ver_line("subjects", "科目 subjects/{id}.json（按班级拆分）"),
             ver_line("classplans", "课表 classplans/{id}.json"),
-            f"| 策略 policy.json | v{policy_version} | 手动维护 |",
+        ]
+        if emit_settings:
+            md.append(ver_line("settings", "默认设置 settings/default-settings.json"))
+        md += [
+            f"| 策略 policy.json | v{policy_version} | {'已更新' if policy_changed else '未变化'}（按内容哈希自动维护） |",
             "",
             f"变更班级：{changed_class_text}",
             "",
@@ -755,7 +931,9 @@ def main() -> int:
     print("版本号：")
     for key, label in (("timelayouts", "时间表"), ("subjects", "科目"), ("classplans", "课表")):
         print(f"  {label}: v{versions[key]}{'（更新）' if changes[key] else '（未变化）'}")
-    print(f"  策略: v{policy_version}（手动维护）")
+    if emit_settings:
+        print(f"  默认设置: v{versions['settings']}（{'更新' if changes['settings'] else '未变化'}，仅对全新机器生效）")
+    print(f"  策略: v{policy_version}（{'更新' if policy_changed else '未变化'}，按内容哈希自动维护）")
     if changed_classes:
         print(f"变更班级：{'、'.join(f'高一{int(c)}班' for c in changed_classes)}")
     else:
