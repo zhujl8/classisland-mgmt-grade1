@@ -32,9 +32,23 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
+    env:
+      SOURCE_FILE: ${{ inputs.source_file || 'result_actual.json' }}
+      FORCE_BUMP: ${{ inputs.force_bump == true && '--force-bump' || '' }}
     steps:
       - name: 检出仓库
         uses: actions/checkout@v4
+        with:
+          # 需要完整历史，后面 reset 到 origin/main 才有依据
+          fetch-depth: 0
+
+      # 定时任务是按「触发那一刻的 main」检出的，跑的过程中可能有人推了新提交；
+      # 先同步一次，保证用的是最新版 build.py（否则会按旧规则生成、把新结构覆盖回去）。
+      - name: 同步最新 main
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+          echo "当前代码：$(git log --oneline -1)"
 
       - name: 安装 Python
         uses: actions/setup-python@v5
@@ -43,9 +57,7 @@ jobs:
 
       - name: 拉取源数据并生成集控档案
         run: |
-          python scripts/build.py \
-            --source-file "${{ inputs.source_file || 'result_actual.json' }}" \
-            ${{ inputs.force_bump && '--force-bump' || '' }}
+          python scripts/build.py --source-file "$SOURCE_FILE" $FORCE_BUMP
 
       - name: 校验生成的档案
         run: python scripts/validate.py
@@ -69,14 +81,39 @@ jobs:
             data/last-update.json
           if-no-files-found: ignore
 
+      # 推送可能被别人（或上一次运行）抢先；那就丢掉本次提交、同步到最新 main、
+      # 用最新代码重建一遍再推，最多重试 3 次。
       - name: 提交并推送
         run: |
+          set -u
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          if git diff --cached --quiet; then
-            echo "课表无变化，跳过提交"
-          else
+
+          commit_and_push() {
+            git add -A
+            if git diff --cached --quiet; then
+              echo "课表无变化，跳过提交"
+              return 0
+            fi
             git commit -m "chore: 更新高一课程表档案（$(date -u +'%Y-%m-%d %H:%M UTC')）"
-            git push
+            git push origin HEAD:main
+          }
+
+          if commit_and_push; then
+            exit 0
           fi
+
+          for attempt in 1 2 3; do
+            echo "::warning::推送被拒（远程有新提交），第 $attempt 次重试：同步 main 后重建"
+            git reset --hard HEAD~1
+            git fetch origin main
+            git reset --hard origin/main
+            python scripts/build.py --source-file "$SOURCE_FILE" $FORCE_BUMP
+            python scripts/validate.py
+            if commit_and_push; then
+              exit 0
+            fi
+          done
+
+          echo "::error::连续 3 次推送失败，请检查仓库权限或手动运行"
+          exit 1
