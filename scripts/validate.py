@@ -4,15 +4,16 @@
 validate.py —— 校验仓库中生成的集控档案是否满足 ClassIsland 静态集控规范。
 
 校验范围：
-  1. manifest.json 结构（ServerKind / ReVersionString / CoreVersion / {id} 模板 / https 地址）
+  1. manifest.json 结构（ServerKind / ReVersionString / CoreVersion / {id} 模板 / https 地址
+     / 镜像前缀一致性与 data/state.json 记录的镜像是否吻合）
   2. timelayouts.json（时间点类型与时间格式、上课点数量；week_cycle 启用时校验回家周周五时间表）
-  3. subjects.json（GUID 键、科目字段）
+  3. subjects/{id}.json（按班级拆分：GUID 键、科目字段、不串班、只含本班任课教师）
   4. classplans/{id}.json（时间表/科目引用完整性、WeekDay 取值、多周轮换规则组合、每张课表节数）
   5. presets/（ManifestUrlTemplate 与 manifest 一致、ClassIdentity 与文件名一致）
   6. policy.json（仅允许已知布尔字段）
   7. data/state.json 与 policy.json / manifest 的版本一致性
   8. manifest 的 DefaultSettingsSource 与 settings/default-settings.json（学期开始时间）
-  9. classplans/ 与 presets/ 的班级集合是否一一对应（识别未清理的陈旧文件）
+  9. classplans/、subjects/ 与 presets/ 的班级集合是否一一对应（识别未清理的陈旧文件）
 
 零第三方依赖，Python 3.9+。全部通过退出码 0，任何问题退出码 1。
 """
