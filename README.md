@@ -76,8 +76,8 @@ https://raw.githubusercontent.com/<你的用户名>/<仓库名>/<分支>/manifes
 
 1. 从仓库下载对应班级的 `presets/ManagementPreset-<班级号>.json`；
 2. 复制到班级机的 **ClassIsland 安装目录**（与 ClassIsland.exe 同一文件夹），并**重命名为 `ManagementPreset.json`**；
-3. 启动 ClassIsland：首次使用时欢迎向导中点【加入集控】，已初始化过的设备在应用设置中进入集控页面加入；
-4. 确认界面上 ID 已自动填为班级号，点击【连接】→【加入】即可。
+3. 启动 ClassIsland：首次使用时欢迎向导中点「加入集控」，已初始化过的设备在应用设置中进入集控页面加入；
+4. 确认界面上 ID 已自动填为班级号，点击「连接」→「加入」即可。
 
 **方式 B：手动填写**
 
