@@ -81,6 +81,7 @@ CONFIG_DEFAULTS = {
     "source_url": "https://duanjr.site/tools/class_schedule/api/schedule?file=result_actual.json",
     "organization_name": "2026级高一年级",
     "core_version": "2.0.0.0",
+    "generate_roster": False,  # 是否生成 docs/班级对照表.md（源 teachers 元数据与课表不一致，默认关闭）
     "exclude_slot_patterns": ["看班"],
     "weekday_names": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"],
     "week_cycle": None,  # 两周轮换；结构见 build-config.json
@@ -674,23 +675,30 @@ def main() -> int:
             json.dump(data, f, ensure_ascii=False, indent=2)
             f.write("\n")
 
-        # 班级对照表（来自源站 teachers 元数据，供查阅；随课表更新自动刷新）
-        meta = data.get("teachers", {})
-        roster_lines = [
-            "# 高一班级对照表",
-            "",
-            "> 由 scripts/build.py 自动生成（源数据中的班级元数据快照），请勿手动编辑。",
-            "",
-            "| 集控 ID | 班级 | 班主任 | 选科组合 |",
-            "| --- | --- | --- | --- |",
-        ]
-        for cid in class_ids:
-            info = meta.get(cid, {})
-            roster_lines.append(
-                f"| {cid} | 高一{int(cid)}班 | {info.get('homeroom', '—')} | {info.get('combo', '—')} |"
-            )
-        with open(ROSTER_MD, "w", encoding="utf-8", newline="\n") as f:
-            f.write("\n".join(roster_lines) + "\n")
+        # 班级对照表（可选，默认关闭）：
+        # 源数据 teachers 元数据（班主任/选科组合）与当前课表不一致，源站页面也不展示，
+        # 直接生成会误导部署；确需生成时把 build-config.json 的 generate_roster 设为 true。
+        if cfg.get("generate_roster"):
+            meta = data.get("teachers", {})
+            roster_lines = [
+                "# 高一班级对照表",
+                "",
+                "> 由 scripts/build.py 自动生成（源数据中的班级元数据快照），请勿手动编辑。",
+                "> 注意：班主任/选科组合来自源数据 `teachers` 元数据，源站页面并未展示，且可能与当前课表不一致，仅作参考。",
+                "",
+                "| 集控 ID | 班级 | 班主任 | 选科组合 |",
+                "| --- | --- | --- | --- |",
+            ]
+            for cid in class_ids:
+                info = meta.get(cid, {})
+                roster_lines.append(
+                    f"| {cid} | 高一{int(cid)}班 | {info.get('homeroom', '—')} | {info.get('combo', '—')} |"
+                )
+            os.makedirs(os.path.dirname(ROSTER_MD), exist_ok=True)
+            with open(ROSTER_MD, "w", encoding="utf-8", newline="\n") as f:
+                f.write("\n".join(roster_lines) + "\n")
+        elif os.path.exists(ROSTER_MD):
+            print("提示：generate_roster 已关闭，保留现有的 docs/班级对照表.md（不再更新）。")
 
         now = datetime.now(BEIJING_TZ).strftime("%Y-%m-%d %H:%M:%S")
         dump_json(

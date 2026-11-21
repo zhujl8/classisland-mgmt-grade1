@@ -34,7 +34,7 @@ manifest.json + subjects.json + timelayouts.json + classplans/{id}.json
 │   ├── build.py                   # 抓取源数据 → 生成全部档案（零第三方依赖）
 │   ├── validate.py                # 结构校验（CI 中自动执行）
 │   └── simulate_client.py         # 本地自检：按客户端判定逻辑逐日验证课表命中（可选）
-├── docs/班级对照表.md              # 集控 ID ↔ 班级/班主任/选科组合（自动生成）
+├── docs/班级对照表.md              # 可选：集控 ID ↔ 班级元数据（默认不生成，见 generate_roster）
 ├── build-config.json              # 构建参数（组织名、源地址、排除节次等）
 ├── data/
 │   ├── state.json                 # 版本状态（内容哈希，自动维护）
@@ -84,7 +84,7 @@ https://raw.githubusercontent.com/<你的用户名>/<仓库名>/<分支>/manifes
 
 在加入集控界面填入：
 - 集控清单 URL：`https://raw.githubusercontent.com/<你的用户名>/<仓库名>/<分支>/manifest.json`
-- ID：班级号（`1`–`20`，对照表见 [docs/班级对照表.md](docs/班级对照表.md)）
+- ID：班级号（`1`–`20`，即集控 ID）
 
 > 集控 ID 即档案 URL 中的 `{id}`：例如 ID 为 `5` 的设备会拉取 `classplans/5.json`（高一5班）。因此每台设备必须使用唯一的班级号，否则会拿到别人的课表。
 
@@ -187,6 +187,7 @@ ClassIsland 客户端只在「清单中某档案的 `Version` 比本地记录更
 | `source_url` | 源站 API 地址（含 `file=` 参数），换数据源只改这里 |
 | `organization_name` | 集控显示的组织名称，默认「2026级高一年级」，建议改成学校名 |
 | `core_version` | 集控清单 CoreVersion，默认 `2.0.0.0`（匹配 ClassIsland 2.x；主版本号必须与客户端一致） |
+| `generate_roster` | 是否生成 `docs/班级对照表.md`，默认 `false`。源数据 `teachers` 元数据与当前课表不一致、源站也不展示，开启前请先核对 |
 | `exclude_slot_patterns` | 排除的节次正则，默认 `["看班"]`（即不生成晚自习节次）。若要纳入晚自习，改为 `[]` 并重新构建 |
 | `week_cycle` | 两周轮换（单双周）配置，见上文「两周轮换」章节；`enabled: false` 可退回无轮换的单周五课表 |
 
@@ -194,11 +195,12 @@ ClassIsland 客户端只在「清单中某档案的 `Version` 比本地记录更
 
 ## 数据口径
 
-- 课表内容与「科目 + 教师」对应关系取自源站页面实际展示的每节次数据（`schedule` + `slot_teachers`），与源站元数据中的教师汇总表（`teachers`）存在少量不一致（代课/调课所致），以每节次标注为准。
+- 课表内容与「科目 + 教师」对应关系取自源站页面实际展示的每节次数据（`schedule` + `slot_teachers`），以每节次标注为准。
+- 源数据中的 `teachers` 元数据（班主任/选科组合/汇总任课教师）与当前课表大面积对不上（例如班主任未在本班任何节次出现），源站页面也不展示这些字段，因此**不用于生成档案**；`docs/班级对照表.md` 默认不生成。
 - 同一科目不同教师视为不同科目条目（ClassIsland 支持按科目显示教师）。
 - 高一10班第 4 节为「自习」（王宁），已按正常科目生成。
 - 回家周周五的三节下午课沿用源数据当周周五第 5~7 节的科目与教师，仅时间提前；上午与常规日一致。
-- 班主任、选科组合等班级元数据见 [docs/班级对照表.md](docs/班级对照表.md)（自动生成，仅作部署参考）。
+- 如需查看班级元数据，可将 `build-config.json` 的 `generate_roster` 设为 `true` 后重新构建，生成 `docs/班级对照表.md`（内容仅作参考，使用前请核对）。
 - **隐私提示**：教师姓名等信息公开托管在 GitHub 上，请注意确认可公开范围。
 
 ## 常见问题
