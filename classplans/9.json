@@ -39,7 +39,8 @@
           "IsEnabled": true
         }
       ],
-      "IsEnabled": true
+      "IsEnabled": true,
+      "AssociatedGroup": "00000000-0000-0000-0000-000000000000"
     },
     "d4c70869-d98a-5dbc-88c3-d531552fb0b3": {
       "Name": "高一9班 · 周二",
@@ -79,7 +80,8 @@
           "IsEnabled": true
         }
       ],
-      "IsEnabled": true
+      "IsEnabled": true,
+      "AssociatedGroup": "00000000-0000-0000-0000-000000000000"
     },
     "25dde4c6-5250-53ba-a008-a02ba9fcfe54": {
       "Name": "高一9班 · 周三",
@@ -119,7 +121,8 @@
           "IsEnabled": true
         }
       ],
-      "IsEnabled": true
+      "IsEnabled": true,
+      "AssociatedGroup": "00000000-0000-0000-0000-000000000000"
     },
     "590f5807-678e-517f-9f22-891b1655ae9f": {
       "Name": "高一9班 · 周四",
@@ -159,14 +162,15 @@
           "IsEnabled": true
         }
       ],
-      "IsEnabled": true
+      "IsEnabled": true,
+      "AssociatedGroup": "00000000-0000-0000-0000-000000000000"
     },
-    "6c2f5263-9a3c-52ac-9956-bf3972876ab0": {
-      "Name": "高一9班 · 周五",
+    "78d899de-7b30-5ec2-ad8b-4d5630518d47": {
+      "Name": "高一9班 · 周五（返校周）",
       "TimeLayoutId": "3113c9e9-9dcb-530b-83f5-f751022b4d20",
       "TimeRule": {
         "WeekDay": 5,
-        "WeekCountDiv": 0,
+        "WeekCountDiv": 1,
         "WeekCountDivTotal": 2
       },
       "Classes": [
@@ -199,7 +203,49 @@
           "IsEnabled": true
         }
       ],
-      "IsEnabled": true
+      "IsEnabled": true,
+      "AssociatedGroup": "00000000-0000-0000-0000-000000000000"
+    },
+    "e5c8e663-347e-5a88-9c48-fc2dc8ef7612": {
+      "Name": "高一9班 · 周五（回家周 · 提前放学）",
+      "TimeLayoutId": "52250418-888f-5ecb-bbd6-cabf79477e8d",
+      "TimeRule": {
+        "WeekDay": 5,
+        "WeekCountDiv": 2,
+        "WeekCountDivTotal": 2
+      },
+      "Classes": [
+        {
+          "SubjectId": "f610c11e-a946-5f8c-96d2-11fda9454464",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "4b000270-5078-5135-bb80-d262bf245bce",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "dd3a6fa9-844d-5618-9fa0-1716e0aac598",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "dd3a6fa9-844d-5618-9fa0-1716e0aac598",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "652a0d7c-9b2b-5f6c-b5b8-83306c0f5e8b",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "b8875084-2389-5767-baac-97406d1d13c5",
+          "IsEnabled": true
+        },
+        {
+          "SubjectId": "b092675e-5166-5882-ba1c-9f503c9520c1",
+          "IsEnabled": true
+        }
+      ],
+      "IsEnabled": true,
+      "AssociatedGroup": "00000000-0000-0000-0000-000000000000"
     }
   }
 }

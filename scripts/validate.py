@@ -5,9 +5,9 @@ validate.py —— 校验仓库中生成的集控档案是否满足 ClassIsland 
 
 校验范围：
   1. manifest.json 结构（ServerKind / ReVersionString / CoreVersion / {id} 模板 / https 地址）
-  2. timelayouts.json（时间点类型与时间格式、上课点数量）
+  2. timelayouts.json（时间点类型与时间格式、上课点数量；week_cycle 启用时校验回家周周五时间表）
   3. subjects.json（GUID 键、科目字段）
-  4. classplans/{id}.json（时间表/科目引用完整性、WeekDay 取值、每张课表节数）
+  4. classplans/{id}.json（时间表/科目引用完整性、WeekDay 取值、多周轮换规则组合、每张课表节数）
   5. presets/（ManifestUrlTemplate 与 manifest 一致、ClassIdentity 与文件名一致）
   6. policy.json（仅允许已知布尔字段）
 
@@ -26,6 +26,10 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
 TIME_RE = re.compile(r"^\d{2,3}:\d{2}:\d{2}$")
 URL_ID_TEMPLATE_RE = re.compile(r"\{id\}")
+
+# ClassIsland 内置课表群 GUID（ClassPlanGroup.cs）
+GLOBAL_GROUP_GUID = "00000000-0000-0000-0000-000000000000"   # 全局课表群（Guid.Empty）
+DEFAULT_GROUP_GUID = "acaf4ef0-e261-4262-b941-34ea93cb4369"  # 默认课表群
 
 errors: list[str] = []
 warnings: list[str] = []
@@ -94,7 +98,7 @@ def main() -> int:
 
     # ── timelayouts.json ──
     timelayouts_profile = load("timelayouts.json")
-    lesson_count = None
+    lesson_counts = {}
     if timelayouts_profile is not None:
         layouts_map = timelayouts_profile.get("TimeLayouts")
         if not isinstance(layouts_map, dict) or not layouts_map:
@@ -116,9 +120,32 @@ def main() -> int:
                         error(f"timelayouts.json: 时间表 {tl_id} 第 {index + 1} 项 TimeType 非法：{ttype!r}")
                     if ttype == 2 and item.get("StartTime") != item.get("EndTime"):
                         warning(f"timelayouts.json: 分割线第 {index + 1} 项起止时间不同（ClassIsland 会将分割线视为瞬时点）")
-                lesson_count = sum(1 for item in items if item.get("TimeType") == 0)
-            if lesson_count and lesson_count < 1:
-                error("timelayouts.json: 没有任何上课时间点")
+                lesson_counts[str(tl_id)] = sum(1 for item in items if item.get("TimeType") == 0)
+                if lesson_counts[str(tl_id)] < 1:
+                    error(f"timelayouts.json: 时间表 {tl_id} 没有任何上课时间点")
+
+    # ── week_cycle（两周轮换）时间表 ──
+    config = load("build-config.json") or {}
+    cycle_cfg = config.get("week_cycle") if isinstance(config, dict) else None
+    home_layout_ids = set()
+    if isinstance(cycle_cfg, dict) and cycle_cfg.get("enabled"):
+        school_over = str(cycle_cfg.get("home_week_friday_school_over") or "").strip()
+        if school_over:
+            if len(school_over.split(":")) == 2:
+                school_over += ":00"
+            for tl_id, tl in (timelayouts_profile.get("TimeLayouts") or {}).items() if timelayouts_profile else []:
+                lessons = [item for item in (tl.get("Layouts") or []) if item.get("TimeType") == 0]
+                if lessons and str(lessons[-1].get("EndTime")) == school_over:
+                    home_layout_ids.add(str(tl_id))
+            if not home_layout_ids:
+                error(
+                    f"timelayouts.json: week_cycle 已启用，但没有任何时间表的末节课在 {school_over} 结束"
+                    "（缺少「回家周周五」提前放学时间表，请重新运行 build.py）"
+                )
+            elif len(home_layout_ids) > 1:
+                warning(f"timelayouts.json: 有多个时间表的末节课都在 {school_over} 结束：{sorted(home_layout_ids)}")
+        else:
+            error("build-config.json: week_cycle.home_week_friday_school_over 未设置")
 
     # ── subjects.json ──
     subjects_profile = load("subjects.json")
@@ -150,6 +177,7 @@ def main() -> int:
     if not files:
         error("classplans/ 目录下没有任何课表文件")
     seen_plan_names = set()
+    rot_summary = set()  # (weekday, div) 样本，用于汇总输出
     for path in files:
         rel = os.path.relpath(path, REPO_ROOT)
         cid = os.path.basename(path)[:-5]
@@ -162,7 +190,7 @@ def main() -> int:
         if not isinstance(plans, dict) or not plans:
             error(f"{rel}: ClassPlans 为空")
             continue
-        weekdays = []
+        weekdays = {}
         for plan_id, plan in plans.items():
             if not GUID_RE.match(str(plan_id)):
                 error(f"{rel}: 课表 ID 不是 GUID：{plan_id!r}")
@@ -176,25 +204,73 @@ def main() -> int:
             weekday = rule.get("WeekDay")
             if not isinstance(weekday, int) or not 0 <= weekday <= 6:
                 error(f"{rel}: 课表 {name!r} 的 WeekDay 非法：{weekday!r}（应为 0=周日 … 6=周六）")
-            else:
-                weekdays.append(weekday)
+                continue
+            week_div = rule.get("WeekCountDiv")
+            week_total = rule.get("WeekCountDivTotal")
+            if not isinstance(week_div, int) or not 0 <= week_div <= 99:
+                error(f"{rel}: 课表 {name!r} 的 WeekCountDiv 应为非负整数：{week_div!r}（0=每周生效，n=第 n 周）")
+                continue
+            if not isinstance(week_total, int) or week_total < 0:
+                error(f"{rel}: 课表 {name!r} 的 WeekCountDivTotal 应为非负整数：{week_total!r}")
+                continue
+            if week_div > 0 and (week_div > week_total or week_total < 2):
+                error(
+                    f"{rel}: 课表 {name!r} 轮换参数非法：WeekCountDiv={week_div} 应不超过 "
+                    f"WeekCountDivTotal={week_total}，且双周轮换要求 WeekCountDivTotal ≥ 2"
+                )
+                continue
+            weekdays.setdefault(weekday, []).append((week_div, week_total, name))
+
+            group = plan.get("AssociatedGroup")
+            if group is not None and str(group).lower() not in (GLOBAL_GROUP_GUID, DEFAULT_GROUP_GUID):
+                error(
+                    f"{rel}: 课表 {name!r} 的 AssociatedGroup 应为全局课表群（全零 GUID）或默认课表群，"
+                    f"实际为 {group!r}（其他课表群会随客户端选中状态变化，导致课表不生效）"
+                )
+
             if str(plan.get("TimeLayoutId")) not in tl_ids:
                 error(f"{rel}: 课表 {name!r} 引用了不存在的时间表 {plan.get('TimeLayoutId')}")
+            elif home_layout_ids:
+                layout_key = str(plan.get("TimeLayoutId"))
+                if week_div == 2 and layout_key not in home_layout_ids:
+                    error(f"{rel}: 课表 {name!r} 为第 2 周（回家周）课表，应引用提前放学时间表")
+                if week_div == 1 and layout_key in home_layout_ids:
+                    error(f"{rel}: 课表 {name!r} 为第 1 周（返校周）课表，不应引用提前放学时间表")
             classes = plan.get("Classes")
             if not isinstance(classes, list) or not classes:
                 error(f"{rel}: 课表 {name!r} 没有任何课程")
                 continue
-            if lesson_count is not None and len(classes) != lesson_count:
-                error(f"{rel}: 课表 {name!r} 课程数 {len(classes)} 与时间表上课点数 {lesson_count} 不一致")
+            expected_lessons = lesson_counts.get(str(plan.get("TimeLayoutId")))
+            if expected_lessons is not None and len(classes) != expected_lessons:
+                error(
+                    f"{rel}: 课表 {name!r} 课程数 {len(classes)} 与所引用时间表上课点数 {expected_lessons} 不一致"
+                )
             for index, cls in enumerate(classes):
                 sid = str(cls.get("SubjectId"))
                 enabled = cls.get("IsEnabled", True)
                 if enabled and sid not in subject_ids:
                     error(f"{rel}: 课表 {name!r} 第 {index + 1} 节引用了不存在的科目 {sid}")
-        if sorted(set(weekdays)) != sorted(set(weekdays)):
-            error(f"{rel}: 存在重复的 WeekDay")
-        if len(weekdays) != len(set(weekdays)):
-            error(f"{rel}: 存在 WeekDay 重复的课表")
+
+        # 多周轮换组合校验：同一周同一天只能命中一张课表
+        for weekday, entries in sorted(weekdays.items()):
+            non_rotation = [(d, t, n) for d, t, n in entries if d == 0]
+            rotation = [(d, t, n) for d, t, n in entries if d > 0]
+            if len(non_rotation) > 1:
+                names = "、".join(n for _, _, n in non_rotation)
+                error(f"{rel}: 星期 {weekday} 存在多张「每周生效」课表（{names}），同一天将命中多张课表")
+            if non_rotation and rotation:
+                error(
+                    f"{rel}: 星期 {weekday} 同时存在「每周生效」与「多周轮换」课表，"
+                    "轮换周内会出现两张课表同时匹配（客户端只取其一，另一张永不生效）"
+                )
+            if rotation:
+                divs = sorted(d for d, _, _ in rotation)
+                if divs != [1, 2]:
+                    error(f"{rel}: 星期 {weekday} 的轮换课表应成对覆盖第 1、2 周，实际为第 {divs} 周")
+                for d, t, n in rotation:
+                    if t != 2:
+                        error(f"{rel}: 课表 {n!r} 的 WeekCountDivTotal 应为 2（双周轮换），实际为 {t}")
+                rot_summary.add((weekday, tuple(divs)))
 
     # ── presets/ ──
     presets = sorted(glob.glob(os.path.join(REPO_ROOT, "presets", "ManagementPreset-*.json")))
@@ -244,6 +320,11 @@ def main() -> int:
 
     # ── 汇总 ──
     print(f"校验完成：{len(files)} 份课表文件，{len(presets)} 份预设。")
+    if rot_summary:
+        summary_text = "、".join(
+            f"星期{day}→第{','.join(str(d) for d in divs)}周" for day, divs in sorted(rot_summary)
+        )
+        print(f"多周轮换：{summary_text}（客户端按「学期首日」自动切换）。")
     for item in warnings:
         print(f"警告：{item}")
     if errors:

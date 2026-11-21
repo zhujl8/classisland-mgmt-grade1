@@ -1,8 +1,8 @@
 {
   "base_url": "https://raw.githubusercontent.com/OWNER/REPO/main",
   "timelayouts": {
-    "hash": "e32f0200a67332e3d177629c94776e1540e22f4e230eda3fbd4bbee1a580233e",
-    "version": 1,
+    "hash": "38eab6cd01076e350003f8e1bf134c15e2113d2344e4e29a5b2d28c174a9d735",
+    "version": 2,
     "url": "https://raw.githubusercontent.com/OWNER/REPO/main/timelayouts.json"
   },
   "subjects": {
@@ -11,30 +11,30 @@
     "url": "https://raw.githubusercontent.com/OWNER/REPO/main/subjects.json"
   },
   "classplans": {
-    "hash": "892b68b6ed9c14ed733161ade239c026774a33f7369b57f50c62498c10045cb0",
-    "version": 1,
+    "hash": "499f6215ea4cfee850edb5fd8890716e4adc386b9f412e3e5bfbd254b7594a6d",
+    "version": 2,
     "url": "https://raw.githubusercontent.com/OWNER/REPO/main/classplans/{id}.json",
     "files": {
-      "1": "7fa8e3a8ab06efaaeef5965352887fce5d3a2d3d047064d13ee5f72d81c29b93",
-      "2": "3d1bcb7029706b5be3224c9f74d05ae2f9a4457a7324499ba1115a38a864c81c",
-      "3": "84750fea35beefd2e065a560f609f9a417df15d45cf464bca4e0ecc833b2f1a5",
-      "4": "6acfefc4ed79afcbb8c4524e9b0c6729dfa46fcaaf69d9ff1791a4b1887b0771",
-      "5": "474b111fd7567f457cf98ead1cb0f1799e640dae6bbecec45731cf3f1bc211d0",
-      "6": "cad82a340ad23f09cd525704f11e496d87b8c3bda1348fe9a37712dae84b0da3",
-      "7": "5e331624fea87bc686589907e0f18b3d747150b2a52f6a3de7b065e139ff89b3",
-      "8": "ea9f47e5c470815586d3c34ebd7db305ced9517507d1434c627d879a2c8f6318",
-      "9": "466529b825e57ada395d8c092a6ab4e51124c3c91acc61c9f080b26e91038766",
-      "10": "e61d89b24e06f4838c3b0dd838e2711d3d512b6bc56685e2824018c4ae66d613",
-      "11": "9d381155a6b7871169ab86dd1aadf26dc3284c600374845b8ea68a9c65d73779",
-      "12": "959ef4b7998b42ad964549dfab9d824a3dc72ed048862754a8c66bc9fb929596",
-      "13": "03358bdea98ae272c3ad838eb5f4de9d206977b04105cc0c54131d7f13221ba0",
-      "14": "ef9bec7bd3cc6aa716d62d8096b0bef51bfea75a1f3bb57185cbb0750862d08f",
-      "15": "7091282c0e2b6212711cee2bbf2534d4914a401746fde00c67ea8d08f8360b2c",
-      "16": "4d6d52389e386683d253e34f34388b438c0d658999f1c308a036e56db3ca245d",
-      "17": "e53ec17e87b914c8a12f74ee54aee1f0acd26fac9cc3657e40657079cbc40b9c",
-      "18": "57e95527feafed8bd7f2c9e2bf5f8d98361d65e8ef3bb9830744057c3a05dffe",
-      "19": "ef964289c75bed2421a7e7b73a7586e7b0ec8fd70b34310b0b460583a71cb936",
-      "20": "e688d6a83f4cefbfc82f5546f7eab72587145e07f96b8b9880eac52b48ab5c13"
+      "1": "8492401467360f5055c3f761026317597b1e6361ad1204cb9742350b82999e4f",
+      "2": "7f6db0927205a6b9fff9b775e72ac0b29391a1d100f689f3101ec78af525e13d",
+      "3": "0806b4eeb434cfcf70f3e9b20813bfdd6f02c9caf0379c3225fe9568b84c24ba",
+      "4": "334b8d1a65ce015be8e2d70b11f8dea9b3b119aee1d2134db4985dc394d9e246",
+      "5": "e7c28c62ec41f28805fea141f9eb74aff5b13629dfb7541f7f0f114b602be9a7",
+      "6": "f80302e7c60b59332665478f358f3519f5ce20fe01a836a88efd03420b749bfc",
+      "7": "8be1856b1166714ddbf3d07e7fdebac4429c11df331b88ca772ab4dfcb04dfb2",
+      "8": "020299fea799b93fe15b0dd3633ec4218c7b1fa5d60dd3830b45f4c1ec96756c",
+      "9": "eba6e25a1f5253779ac8b68646fd17c075613e8eea3d53232f27c5fcbd975a61",
+      "10": "ff5722a4f0e2d94e46e9899536f76ac284067a4955fafddb4113b7e7e8eb5579",
+      "11": "bb1dfb5506f04de453c15ea2cf28fd30967b69a8eb3be20fbf1b6be3565bf986",
+      "12": "882192948f25d3bfdd4c9c2f5faf307ebdd153aadfd0e05f9a1a55372551a2fe",
+      "13": "60cc3e0e9c63797e34a17b6a5c2ee8b37ceaa37b44713f11423c3c5dbfb00db0",
+      "14": "8b46bf68d72bdf4c849a06bfd0c9298fbd43146e5ca66566076b807ab78f1f07",
+      "15": "357d9356e7f9db8b68eb43031913f74ebe16aec141ecbabefef31195942e3daf",
+      "16": "36bcf7241ab1744f6488618a13090ddb396f988140d9217e828042a8c3f455dc",
+      "17": "331e61bbd85042fbb017f03c3535e8a53fc389230ba55e25e4e91b67f2602b3c",
+      "18": "92ae5b61dba13cbc7351cdcc206b69b7f25367b6ecf9b8644edc299e198115d1",
+      "19": "dfbaecb7a55f745e89eb986e39cbebef505cc0b726a36a7365511ccd9aeb47cf",
+      "20": "a0c22a647582ccc329cd493d592a4a67aa8cc0dccbaa9bc147f47e502fa2e691"
     }
   }
 }

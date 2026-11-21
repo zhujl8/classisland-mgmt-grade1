@@ -4,5 +4,12 @@
   "organization_name": "2026级高一年级",
   "core_version": "2.0.0.0",
   "exclude_slot_patterns": ["看班"],
-  "weekday_names": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+  "weekday_names": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"],
+  "week_cycle": {
+    "//": "两周轮换（单双周）。return_week_monday = 返校周的周一（该周周五全天正常）；回家周的周五下午提前：home_week_friday_first_class 上课、home_week_friday_school_over 放学。班级机需把客户端「设置 → 常规 → 学期首日」设为 return_week_monday 的前一天（周日）。放寒暑假或轮换节奏变化时，更新 return_week_monday 后重新构建。",
+    "enabled": true,
+    "return_week_monday": "2026-11-23",
+    "home_week_friday_first_class": "12:20",
+    "home_week_friday_school_over": "14:55"
+  }
 }

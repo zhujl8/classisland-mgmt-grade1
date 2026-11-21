@@ -4,11 +4,11 @@
   "CoreVersion": "2.0.0.0",
   "ClassPlanSource": {
     "Value": "https://raw.githubusercontent.com/OWNER/REPO/main/classplans/{id}.json",
-    "Version": 1
+    "Version": 2
   },
   "TimeLayoutSource": {
     "Value": "https://raw.githubusercontent.com/OWNER/REPO/main/timelayouts.json",
-    "Version": 1
+    "Version": 2
   },
   "SubjectsSource": {
     "Value": "https://raw.githubusercontent.com/OWNER/REPO/main/subjects.json",

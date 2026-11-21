@@ -10,6 +10,15 @@ build.py —— 拉取课程表源数据并生成 ClassIsland 静态集控档案
       → manifest.json（内容变化时自动递增 Version）
       → git 提交推送 → ClassIsland 客户端按集控清单拉取
 
+两周轮换（单双周）：
+  build-config.json 的 week_cycle.enabled 打开后：
+    - 周一~周四课表每周生效（TimeRule.WeekCountDiv = 0）；
+    - 周五拆成两张课表：返校周（WeekCountDiv = 1，正常时间表）
+      与回家周（WeekCountDiv = 2，下午提前：12:20 上课、14:55 放学）；
+    - 客户端以「设置 → 常规 → 学期首日」为起点计算当周处于第 1/2 周，
+      自动切换两张周五课表。学期首日 = return_week_monday 的前一天（周日），
+      构建摘要与 README 中会给出该日期。
+
 零第三方依赖，仅需 Python 3.9+ 标准库。
 
 常用命令：
@@ -48,6 +57,14 @@ ZERO_GUID = "00000000-0000-0000-0000-000000000000"
 
 # 统一 TimeLayout 的 GUID（内容变化不会改变 GUID，仅依赖 manifest 版本号刷新）
 TIME_LAYOUT_ID = str(uuid.uuid5(GUID_NAMESPACE, "grade1/timelayout"))
+# 「回家周周五」专用 TimeLayout（下午提前放学）
+TIME_LAYOUT_HOME_FRIDAY_ID = str(uuid.uuid5(GUID_NAMESPACE, "grade1/timelayout/home-friday"))
+
+# 课表归属：全局课表群（ClassIsland ClassPlanGroup.GlobalGroupGuid = Guid.Empty）。
+# 归属全局群后不依赖客户端当前选中的课表群，任何状态下都能参与当日课表匹配。
+GLOBAL_GROUP_GUID = ZERO_GUID
+
+WEEKDAY_CN = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]  # date.weekday(): 0=周一
 
 BEIJING_TZ = timezone(timedelta(hours=8))
 
@@ -66,6 +83,7 @@ CONFIG_DEFAULTS = {
     "core_version": "2.0.0.0",
     "exclude_slot_patterns": ["看班"],
     "weekday_names": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"],
+    "week_cycle": None,  # 两周轮换；结构见 build-config.json
 }
 
 
@@ -220,6 +238,115 @@ def crosses_noon(start: str, end: str) -> bool:
     return minutes_of(start) < 12 * 60 < minutes_of(end)
 
 
+def format_hhmm(total_minutes: int) -> str:
+    """分钟数 → 'HH:MM'。"""
+    return f"{total_minutes // 60:02d}:{total_minutes % 60:02d}"
+
+
+def parse_time_point(value, name: str) -> str:
+    """'12:20' / '12:20:00' → '12:20:00'。"""
+    text = str(value or "").strip()
+    for pattern in ("%H:%M", "%H:%M:%S"):
+        try:
+            return datetime.strptime(text, pattern).strftime("%H:%M:%S")
+        except ValueError:
+            continue
+    raise RuntimeError(f"{name} 应为 HH:MM 或 HH:MM:SS 时间，实际为 {text!r}")
+
+
+# ─────────────────────── 两周轮换（单双周） ───────────────────────
+
+
+def parse_week_cycle(cfg: dict):
+    """解析 build-config.json 的 week_cycle 配置；未启用时返回 None。"""
+    cycle = cfg.get("week_cycle")
+    if not cycle:
+        return None
+    if not isinstance(cycle, dict) or not cycle.get("enabled"):
+        return None
+
+    monday_raw = str(cycle.get("return_week_monday", "")).strip()
+    try:
+        anchor = datetime.strptime(monday_raw, "%Y-%m-%d").date()
+    except ValueError as error:
+        raise RuntimeError(f"week_cycle.return_week_monday 应为 YYYY-MM-DD 日期：{error}") from error
+    if anchor.weekday() != 0:
+        raise RuntimeError(
+            f"week_cycle.return_week_monday 应为「返校周」的周一，{monday_raw} 实际是{WEEKDAY_CN[anchor.weekday()]}"
+        )
+
+    first_class = parse_time_point(cycle.get("home_week_friday_first_class"), "week_cycle.home_week_friday_first_class")
+    school_over = parse_time_point(cycle.get("home_week_friday_school_over"), "week_cycle.home_week_friday_school_over")
+    if minutes_of(school_over) <= minutes_of(first_class):
+        raise RuntimeError("week_cycle：home_week_friday_school_over 应晚于 home_week_friday_first_class")
+
+    # 客户端轮换基准（ClassIsland Settings.SingleWeekStartTime，界面称「学期首日」）：
+    # 学期首日当天为第 1 周。取返校周周一的前一天（周日），可保证周日入学/返校当晚就属于新一轮的返校周。
+    semester_start = anchor - timedelta(days=1)
+    return {
+        "return_week_monday": anchor,
+        "first_class": first_class,
+        "school_over": school_over,
+        "semester_start": semester_start,
+    }
+
+
+def build_home_friday_times(times, included_indexes, cycle) -> list:
+    """构造「回家周周五」使用的时间数组。
+
+    午休级长间隔之后的节次整体提前：下午第一节从 first_class 开始，末节在 school_over 结束，
+    节次时长与课间时长沿用常规下午作息。无法精确填满时会直接报错，避免静默生成错课表。
+    """
+    first_class = cycle["first_class"]
+    school_over = cycle["school_over"]
+
+    # 与 build_time_layout 相同的分割规则，定位长间隔（≥ LONG_GAP_MINUTES）之后的第一个节次
+    split_pos = None
+    previous_end = None
+    for pos, index in enumerate(included_indexes):
+        start, end = parse_hhmm(times[index])
+        if previous_end is not None and minutes_of(start) - minutes_of(previous_end) >= LONG_GAP_MINUTES:
+            split_pos = pos
+        previous_end = end
+    if split_pos is None:
+        raise RuntimeError(
+            "week_cycle 需要作息中存在午休级别的长间隔（≥60 分钟）来区分上午/下午，"
+            "当前源数据 times 未检测到长间隔；请检查数据源或把 build-config.json 的 week_cycle.enabled 改为 false。"
+        )
+
+    afternoon_indexes = included_indexes[split_pos:]
+    count = len(afternoon_indexes)
+    first_start, first_end = parse_hhmm(times[afternoon_indexes[0]])
+    lesson_minutes = minutes_of(first_end) - minutes_of(first_start)
+    if count >= 2:
+        next_start, _ = parse_hhmm(times[afternoon_indexes[1]])
+        break_minutes = minutes_of(next_start) - minutes_of(first_end)
+    else:
+        break_minutes = 0
+
+    total_minutes = minutes_of(school_over) - minutes_of(first_class)
+    need = count * lesson_minutes + (count - 1) * break_minutes
+    if need != total_minutes:
+        raise RuntimeError(
+            f"回家周周五时间排不下：{count} 节 × {lesson_minutes} 分钟 + {count - 1} 个 {break_minutes} 分钟课间 = {need} 分钟，"
+            f"但 {first_class[:5]}–{school_over[:5]} 共 {total_minutes} 分钟。"
+            "请核对源站下午节次时长，或调整 build-config.json 中 week_cycle 的 first_class / school_over。"
+        )
+
+    new_times = list(times)
+    cursor = minutes_of(first_class)
+    for order, index in enumerate(afternoon_indexes):
+        start = cursor
+        end = start + lesson_minutes
+        new_times[index] = f"{format_hhmm(start)}-{format_hhmm(end)}"
+        cursor = end + (break_minutes if order < count - 1 else 0)
+
+    _, last_end = parse_hhmm(new_times[afternoon_indexes[-1]])
+    if last_end != school_over:
+        raise RuntimeError(f"内部错误：回家周周五末节结束时间 {last_end} != 配置放学时间 {school_over}")
+    return new_times
+
+
 # ─────────────────────────── 档案构建 ───────────────────────────
 
 
@@ -268,7 +395,8 @@ def build_time_layout(slots, times, included_indexes) -> dict:
     return layouts
 
 
-def build_subjects_and_plans(data, included_indexes, weekday_names, exclude_report) -> tuple:
+def build_subjects_and_plans(data, included_indexes, weekday_names, exclude_report,
+                             week_cycle=None, friday_home_layout_id=None) -> tuple:
     """遍历全部班级，生成科目总表与每班每日课表。返回 (subjects, classplans_by_class)。"""
     schedule = data["schedule"]
     slot_teachers = data.get("slot_teachers", {})
@@ -306,14 +434,33 @@ def build_subjects_and_plans(data, included_indexes, weekday_names, exclude_repo
                 )
                 classes.append({"SubjectId": subject_id, "IsEnabled": True})
 
-            plan_id = guid_of("classplan", cid, str(weekday))
-            plans[plan_id] = {
-                "Name": f"高一{class_number}班 · {day_name}",
-                "TimeLayoutId": TIME_LAYOUT_ID,
-                "TimeRule": {"WeekDay": weekday, "WeekCountDiv": 0, "WeekCountDivTotal": 2},
-                "Classes": classes,
-                "IsEnabled": True,
-            }
+            if weekday == 5 and week_cycle and friday_home_layout_id:
+                # 两周轮换：周五拆成「返校周」（第 1 周）与「回家周」（第 2 周）两张课表，
+                # 客户端按 Settings.SingleWeekStartTime（学期首日）自动切换。
+                friday_variants = (
+                    ("return", 1, TIME_LAYOUT_ID, f"{day_name}（返校周）"),
+                    ("home", 2, friday_home_layout_id, f"{day_name}（回家周 · 提前放学）"),
+                )
+                for suffix, week_div, layout_id, label in friday_variants:
+                    plan_id = guid_of("classplan", cid, str(weekday), suffix)
+                    plans[plan_id] = {
+                        "Name": f"高一{class_number}班 · {label}",
+                        "TimeLayoutId": layout_id,
+                        "TimeRule": {"WeekDay": weekday, "WeekCountDiv": week_div, "WeekCountDivTotal": 2},
+                        "Classes": [dict(item) for item in classes],
+                        "IsEnabled": True,
+                        "AssociatedGroup": GLOBAL_GROUP_GUID,
+                    }
+            else:
+                plan_id = guid_of("classplan", cid, str(weekday))
+                plans[plan_id] = {
+                    "Name": f"高一{class_number}班 · {day_name}",
+                    "TimeLayoutId": TIME_LAYOUT_ID,
+                    "TimeRule": {"WeekDay": weekday, "WeekCountDiv": 0, "WeekCountDivTotal": 2},
+                    "Classes": classes,
+                    "IsEnabled": True,
+                    "AssociatedGroup": GLOBAL_GROUP_GUID,
+                }
         classplans_by_class[cid] = plans
 
     return subjects, classplans_by_class
@@ -375,21 +522,52 @@ def main() -> int:
     if excluded:
         print(f"排除节次：{excluded}")
 
+    # ── 两周轮换 ──
+    cycle = parse_week_cycle(cfg)
+    times_home_friday = None
+    layouts_home_friday = None
+    if cycle:
+        times_home_friday = build_home_friday_times(times, included_indexes, cycle)
+        layouts_home_friday = build_time_layout(slots, times_home_friday, included_indexes)
+        print(
+            "两周轮换：返校周锚点 "
+            f"{cycle['return_week_monday'].strftime('%Y-%m-%d')}（周一），回家周周五 "
+            f"{cycle['first_class'][:5]} 上课、{cycle['school_over'][:5]} 放学。"
+        )
+        print(
+            "客户端「设置 → 常规 → 学期首日」需设为 "
+            f"{cycle['semester_start'].strftime('%Y-%m-%d')}（周日），单双周才会正确轮换。"
+        )
+
     # ── 生成档案 ──
     layouts = build_time_layout(slots, times, included_indexes)
     lesson_count = sum(1 for item in layouts if item["TimeType"] == 0)
     exclude_report = []
-    subjects, classplans_by_class = build_subjects_and_plans(data, included_indexes, weekday_names, exclude_report)
+    subjects, classplans_by_class = build_subjects_and_plans(
+        data,
+        included_indexes,
+        weekday_names,
+        exclude_report,
+        week_cycle=cycle,
+        friday_home_layout_id=TIME_LAYOUT_HOME_FRIDAY_ID if cycle else None,
+    )
     for note in exclude_report:
         print(f"提示：{note}")
 
     subject_count = len(subjects)
     class_ids = sorted(classplans_by_class.keys(), key=int)
-    print(f"生成完成：{len(class_ids)} 个班 × 每班 {len(data['days'])} 张日课表，{lesson_count} 节/天，科目 {subject_count} 个。")
+    plans_per_class = len(next(iter(classplans_by_class.values()))) if classplans_by_class else 0
+    print(f"生成完成：{len(class_ids)} 个班 × 每班 {plans_per_class} 张日课表，{lesson_count} 节/天，科目 {subject_count} 个。")
 
+    timelayouts_map = {TIME_LAYOUT_ID: {"Name": "高一统一时间表", "Layouts": layouts}}
+    if cycle:
+        timelayouts_map[TIME_LAYOUT_HOME_FRIDAY_ID] = {
+            "Name": f"高一统一时间表 · 回家周周五（{cycle['first_class'][:5]} 上课，{cycle['school_over'][:5]} 放学）",
+            "Layouts": layouts_home_friday,
+        }
     timelayouts_profile = {
         "Name": "高一统一时间表（自动生成）",
-        "TimeLayouts": {TIME_LAYOUT_ID: {"Name": "高一统一时间表", "Layouts": layouts}},
+        "TimeLayouts": timelayouts_map,
     }
     subjects_profile = {"Name": "高一科目总表（自动生成）", "Subjects": subjects}
 
@@ -540,6 +718,15 @@ def main() -> int:
             f"- 源数据：{data.get('title', args.source_file)}（{args.source_file}）",
             f"- 抓取时间：{now}（北京时间）",
             f"- 覆盖班级：{len(class_ids)} 个 ｜ 每日 {lesson_count} 节 ｜ 科目 {subject_count} 个",
+        ]
+        if cycle:
+            md += [
+                f"- 两周轮换：返校周锚点 {cycle['return_week_monday'].strftime('%Y-%m-%d')}（周一，周五正常）"
+                f"；回家周周五 {cycle['first_class'][:5]} 上课、{cycle['school_over'][:5]} 放学",
+                f"- **班级机必设**：「设置 → 常规 → 学期首日」= {cycle['semester_start'].strftime('%Y-%m-%d')}（周日），"
+                "单双周才会自动切换",
+            ]
+        md += [
             "",
             "| 档案 | 版本 | 状态 |",
             "| --- | --- | --- |",
