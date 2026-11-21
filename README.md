@@ -2,7 +2,7 @@
 
 面向全高一年级（1–20 班）的 [ClassIsland](https://github.com/ClassIsland/ClassIsland) **静态集控仓库**：课表数据自动从源站抓取、转换为 ClassIsland 2.x 档案格式，托管在 GitHub 上，班级多媒体屏幕上的 ClassIsland 通过集控功能按班级自动拉取对应课表。
 
-内置 GitHub Actions：**手动点一下（或开启定时后自动）** 即可完成「抓取源数据 → 生成档案 → 递增版本号 → 提交推送」全流程，无需手工编辑任何 JSON。
+内置 GitHub Actions：**每天 06:30（北京时间）自动运行一次**（也可在 Actions 页手动触发），完成「抓取源数据 → 生成档案 → 递增版本号 → 提交推送」全流程，无需手工编辑任何 JSON。
 
 ```
 源站课表页面 (duanjr.site/tools/class_schedule)
@@ -13,7 +13,8 @@ GitHub Action（本仓库 scripts/build.py）
         ▼
 manifest.json + subjects/{id}.json + timelayouts.json + classplans/{id}.json
         + settings/default-settings.json（可选，下发「学期开始时间」）
-        │  raw.githubusercontent.com 静态托管
+        │  镜像加速（默认开）：自动挑最快的公益镜像，把地址改写成「镜像 + GitHub 原始地址」
+        │  GitHub 静态托管（raw.githubusercontent.com）
         ▼
 班级机 ClassIsland（加入管理，ID = 班级号 1–20）
 ```
@@ -23,7 +24,7 @@ manifest.json + subjects/{id}.json + timelayouts.json + classplans/{id}.json
 ## 仓库结构
 
 ```
-├── manifest.json                  # 集控清单（Action 自动维护版本号）
+├── manifest.json                  # 集控清单（Action 自动维护版本号；地址默认经镜像加速改写）
 ├── policy.json                    # 集控策略（管理员手动维护内容，版本号按内容哈希自动维护）
 ├── subjects/
 │   ├── 1.json … 20.json           # 每班科目表（自动生成，只含本班任课教师 7–11 条）
@@ -172,14 +173,16 @@ https://raw.githubusercontent.com/<你的用户名>/<仓库名>/<分支>/manifes
 - `source_file`：源站数据文件名，默认 `result_actual.json`；
 - `force_bump`：内容没变也强制递增版本号，用于让所有客户端立即重新拉取。
 
-**自动定时更新（可选，默认关闭）**：编辑 `.github/workflows/update.yml`，按文件内注释取消 `on.schedule` 段的注释并提交即可，例如每周日晚自动同步一次：
+**自动定时更新（默认开启，每天 06:30 北京时间）**：`.github/workflows/update.yml` 里已配置
 
 ```yaml
 on:
   schedule:
-    - cron: "30 22 * * 0"   # 22:30 UTC = 北京时间周一 06:30（GitHub cron 使用 UTC）
-  workflow_dispatch: { }    # 保留手动触发；inputs 配置一并保留
+    - cron: "30 22 * * *"   # 22:30 UTC = 次日 06:30 北京时间（GitHub cron 用 UTC）
+  workflow_dispatch:        # 保留手动触发
 ```
+
+想改成每周一次就用 `"30 22 * * 0"`；想换时刻按 UTC 换算（每天 06:00 北京时间 → `"0 22 * * *"`）。定时开始时工作流会先 `reset --hard origin/main`，保证用最新代码重建；推送被抢先会自动重试最多 3 次。
 
 **本地手动运行**（不经过 GitHub，适合内网排查）：
 
@@ -201,6 +204,39 @@ ClassIsland 客户端只在「清单中某档案的 `Version` 比本地记录更
 - **退场课表中和**：源数据里消失的课表（年度调整、结构变更等）不会从客户端档案里被删掉，脚本会把它们改写为 `IsEnabled: false` 的停用桩（名称带「（已停用）」前缀、时间表引用指向常规表），确保它们不再参与当日命中。
 - **陈旧文件清理**：源数据里不存在的班级，其 `classplans/{id}.json` 与 `presets/ManagementPreset-{id}.json` 会被删除，不再留在仓库里。
 - `settings/default-settings.json` 随 `week_cycle` 联动：关闭轮换或把 `emit_default_settings` 改回 `false` 时，文件会被移除、清单字段一并去掉。
+
+## 镜像加速（默认开启）
+
+`raw.githubusercontent.com` 在国内教室网络基本连不上（客户端表现为一直拉取失败、课表不更新），所以构建时会把清单里的所有地址改写成「镜像 + GitHub 原始地址」的拼接形式：
+
+```
+https://gh-proxy.com/https://raw.githubusercontent.com/<用户名>/<仓库>/main/classplans/1.json
+```
+
+镜像从 <https://git.hiwiki.org/zh-CN/mirrors> 背后的测速数据（`/data/mirror-speeds.json`，每 12 小时更新）里挑：
+
+1. 取状态为「正常」的镜像，按官方测速延迟升序；
+2. 并发探测前 10 个（每种镜像同时试 `镜像+raw 路径` 与 `镜像+github.com/raw 路径` 两种形式），必须返回 200 且内容确实是本仓库的清单才算可用；
+3. 在可用的镜像里取延迟最低者；
+4. **迟滞**：如果上次选中的镜像仍然可用、且延迟不超过最优的 1.5 倍，就保持不变——镜像一换所有地址都变，版本号会全部 +1，客户端要重新下载全部档案，没必要为了几十毫秒来回折腾。
+
+选中的镜像记在 `data/state.json` 的 `mirror` 字段；`validate.py` 会检查清单里的所有地址同根、同前缀，并与该记录一致。
+
+**手动指定或关闭**：
+
+```jsonc
+// build-config.json
+"mirror": {
+  "enabled": true,        // 关掉就是直连 GitHub
+  "host": "ghfast.top",   // 固定某家镜像，跳过自动选择
+  "list_url": "https://git.hiwiki.org/data/mirror-speeds.json",
+  "timeout": 10,          // 单个镜像探测超时（秒）
+  "probe_candidates": 10, // 实际探测的镜像数量
+  "hysteresis": 1.5       // 迟滞倍数
+}
+```
+
+也可以临时用命令覆盖：`python scripts/build.py --repo <用户名>/<仓库> --no-mirror`（直连 GitHub）或 `--mirror-host ghfast.top`（固定镜像）。注意这些镜像都是网友公益提供、随时可能失效，换镜像后需要重新跑一次构建才会切过去。
 
 ## 集控策略（policy.json）
 
@@ -228,6 +264,7 @@ ClassIsland 客户端只在「清单中某档案的 `Version` 比本地记录更
 | `generate_roster` | 是否生成 `docs/班级对照表.md`，默认 `false`。源数据 `teachers` 元数据与当前课表不一致、源站也不展示，开启前请先核对 |
 | `exclude_slot_patterns` | 排除的节次正则，默认 `["看班"]`（即不生成晚自习节次）。若要纳入晚自习，改为 `[]` 并重新构建 |
 | `emit_default_settings` | 是否生成 `settings/default-settings.json` 并经 `DefaultSettingsSource` 下发「学期开始时间」，默认 `true`。**只对未完成欢迎向导的全新实例生效** |
+| `mirror` | 镜像加速配置，见上文「镜像加速」；`enabled: false` 等价于 `--no-mirror`，`host` 可固定某家镜像 |
 | `week_cycle` | 两周轮换（单双周）配置，见上文；`enabled: false` 可退回无轮换的单周五课表（两张周五课表折叠为“每周一张 + 一张停用桩”） |
 
 > 纳入晚自习后，时间表会自动加入晚间时间点，课表节次由源数据的「看班」行填充。
@@ -254,6 +291,8 @@ ClassIsland 客户端只在「清单中某档案的 `Version` 比本地记录更
 4. **设置源只对全新机器生效**：`DefaultSettingsSource` 只在欢迎向导完成前应用，且整体替换设置，无法用它给已初始化的机器改单项设置。
 5. **源站证书不匹配时自动降级 TLS 校验**（极端情况会跳过证书校验）以兼容源站证书域名不匹配，这意味着链路内容有被替换的可能；请用 `data/snapshot/` 的提交 diff 做人工复核。
 6. 周六周日没有课表，客户端当日会显示无课/空白，这是预期行为。
+7. **镜像依赖第三方公益服务**：`git.hiwiki.org` 那份清单和镜像本身都由网友提供，随时可能超时、限速或下线。镜像挂了的表现是所有客户端都拉不到档案（清单里只有一个地址，没有备用）。真出问题时把 `mirror.enabled` 改成 `false`（或 `--no-mirror`）重新构建即可直连 GitHub；长期方案是 `--base-url` 指向自建/内网的静态托管。
+8. **镜像探测在构建机上跑**：脚本测的是 GitHub Actions/你本机的网络，不是教室的真实网络。因此排序优先用清单里（国内众测）的延迟，本机探测只用来确认“这家镜像确实能返回我们的文件”。
 
 ## 常见问题
 
@@ -266,8 +305,11 @@ ClassIsland 客户端只在「清单中某档案的 `Version` 比本地记录更
 **客户端没有更新到新课表？**
 按顺序检查：① Action 是否真的检测到变化（运行摘要中各档案状态）；② 客户端重启或集控重载后才会拉取（清单/档案有本地缓存）；③ 若确需强制刷新，用 `force_bump` 触发一次。
 
+**课表一直拉不下来 / 提示下载失败？**
+先确认镜像可用：把清单里的地址复制到浏览器（例如 `https://gh-proxy.com/https://raw.githubusercontent.com/<用户名>/<仓库>/main/manifest.json`），能返回 JSON 就没问题；打不开说明这家镜像挂了，把 `build-config.json` 的 `mirror.host` 改成另一家（如 `ghfast.top`、`fastgit.cc`）或直接 `enabled: false`，重新触发一次 Action。
+
 **校园网访问 raw.githubusercontent.com 很慢或不通？**
-可用 `--base-url` 参数改到别的静态托管（自建镜像、内网静态服务器），或同步到 Gitee 后改写清单地址；地址变化会让脚本自动 +1 版本号。
+默认已开镜像加速（见上文「镜像加速」），通常不需要额外处理；若想彻底不依赖公益镜像，用 `--base-url` 改到自建静态托管（内网 Web 服务器、对象存储等），地址变化会让脚本自动 +1 版本号。
 
 **设备上只看到本班的老师，是不是档案生成漏了？**
 不是。科目表按班分发（`subjects/{id}.json`），每台设备本来就只拿到本班任课教师；某个班的课表若引用了本班科目表里没有的条目，`validate.py` 会直接报错。

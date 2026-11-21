@@ -6,9 +6,9 @@ build.py —— 拉取课程表源数据并生成 ClassIsland 静态集控档案
 数据流：
   源站 API (duanjr.site /tools/class_schedule/api/schedule)
       → 本脚本抓取、校验、转换
-      → subjects.json / timelayouts.json / classplans/{id}.json / presets/
+      → subjects/{id}.json / timelayouts.json / classplans/{id}.json / presets/
       → settings/default-settings.json（可选，下发学期开始时间）
-      → manifest.json（内容变化时自动递增 Version）
+      → manifest.json（内容变化时自动递增 Version；地址默认按镜像加速改写）
       → git 提交推送 → ClassIsland 客户端按集控清单拉取
 
 两周轮换（单双周）：
@@ -29,9 +29,12 @@ build.py —— 拉取课程表源数据并生成 ClassIsland 静态集控档案
   python scripts/build.py --repo 用户名/仓库名   # 本地运行（写入 raw.githubusercontent 地址）
   python scripts/build.py --dry-run             # 只计算不写盘
   python scripts/build.py --force-bump          # 内容未变也递增版本号
+  python scripts/build.py --no-mirror           # 不走镜像，清单直连 raw.githubusercontent.com
+  python scripts/build.py --mirror-host ghfast.top  # 固定某家镜像
 """
 
 import argparse
+import gzip
 import hashlib
 import json
 import os
@@ -43,6 +46,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 
 # ─────────────────────────── 常量 ───────────────────────────
@@ -80,6 +84,18 @@ HTTP_TIMEOUT = 30
 HTTP_RETRIES = 3
 USER_AGENT = "ClassIsland-Mgmt-Updater/1.0 (schedule sync)"
 
+# 镜像加速：镜像清单来自 https://git.hiwiki.org/zh-CN/mirrors 背后的测速数据（每 12 小时更新）
+MIRROR_LIST_URL = "https://git.hiwiki.org/data/mirror-speeds.json"
+RAW_HOST_PREFIX = "https://raw.githubusercontent.com/"
+DEFAULT_MIRROR = {
+    "enabled": True,          # 默认开启：国内直连 raw.githubusercontent.com 基本不可用
+    "host": None,             # 固定某个镜像主机名；None = 自动选最快
+    "list_url": MIRROR_LIST_URL,
+    "timeout": 10,            # 单个镜像探测超时（秒）
+    "probe_candidates": 10,   # 按清单延迟排序后实际探测的镜像数量
+    "hysteresis": 1.5,        # 延迟不回落到上次选择的 1.5 倍以内就不切换，避免每天来回改
+}
+
 # 默认配置（build-config.json 缺省字段时使用）
 CONFIG_DEFAULTS = {
     "source_url": "https://duanjr.site/tools/class_schedule/api/schedule?file=result_actual.json",
@@ -92,6 +108,7 @@ CONFIG_DEFAULTS = {
     # 是否通过集控清单的 DefaultSettingsSource 下发「学期首日」。
     # 注意：ClassIsland 只在欢迎向导完成前应用该设置源（全新机器），且是整体替换 Settings.json。
     "emit_default_settings": True,
+    "mirror": dict(DEFAULT_MIRROR),
 }
 
 # 「退场课表」的中和桩：不再生成、但仍需留在客户端档案里的课表会被改写为停用桩，
@@ -133,7 +150,14 @@ def load_config() -> dict:
         for key, value in file_cfg.items():
             if key.startswith("//"):
                 continue
-            cfg[key] = value
+            if key == "mirror" and isinstance(value, dict):
+                merged = dict(DEFAULT_MIRROR)
+                for mk, mv in value.items():
+                    if not str(mk).startswith("//"):
+                        merged[mk] = mv
+                cfg[key] = merged
+            else:
+                cfg[key] = value
     return cfg
 
 
@@ -179,6 +203,211 @@ def http_get(url: str) -> bytes:
             time.sleep(3)
     raise RuntimeError(f"无法抓取源数据：{last_error}\n"
                        "提示：已自动尝试跳过证书校验仍失败，请检查网络能否访问源站（可用浏览器打开 source_url 验证）。")
+
+
+# ─────────────────────────── 镜像加速 ───────────────────────────
+
+
+def fetch_bytes(url: str, timeout: float = 10.0):
+    """短超时 GET，返回 (body, 耗时秒)。gzip 响应自动解压；证书校验仍按「严格→跳过」逐级降级。"""
+    last_error = None
+    for level in (2, 0):
+        context = None
+        if level == 0:
+            context = ssl.create_default_context()
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
+        request = urllib.request.Request(
+            url, headers={"User-Agent": USER_AGENT, "Accept-Encoding": "gzip"}
+        )
+        started = time.monotonic()
+        try:
+            with urllib.request.urlopen(request, timeout=timeout, context=context) as response:
+                body = response.read()
+                # 有的 CDN 会把 Content-Encoding 标成 br，实际给的却是 gzip；按魔数判断最稳
+                if body[:2] == b"\x1f\x8b":
+                    try:
+                        body = gzip.decompress(body)
+                    except OSError:
+                        pass
+                return body, time.monotonic() - started
+        except Exception as error:  # noqa: BLE001
+            last_error = error
+    raise RuntimeError(f"无法获取 {url}：{last_error}")
+
+
+def mirror_wrap(url: str, base: str, style: str):
+    """把 GitHub 原始地址套到镜像上。style: raw=保持 raw.githubusercontent 路径；github=改成 github.com/raw 路径。"""
+    if not base.endswith("/"):
+        base += "/"
+    if style == "raw":
+        return f"{base}{url}"
+    if style == "github":
+        match = re.match(r"^https://raw\.githubusercontent\.com/([^/]+)/([^/]+)/([^/]+)/(.+)$", url)
+        if not match:
+            return None
+        owner, repo, branch, path = match.groups()
+        return f"{base}https://github.com/{owner}/{repo}/raw/{branch}/{path}"
+    return None
+
+
+def fetch_mirror_candidates(list_url: str, timeout: float):
+    """读取镜像清单与测速结果，只保留状态正常的镜像，按清单延迟升序返回。"""
+    # 该接口会被 CDN 缓存成奇怪的编码（Content-Encoding: br 但内容其实是 gzip），
+    # 加个时间戳参数绕开缓存，配合按魔数解压才能稳定拿到 JSON。
+    bust = f"{list_url}{'&' if '?' in list_url else '?'}_={int(time.time())}"
+    body, _ = fetch_bytes(bust, timeout)
+    document = json.loads(body.decode("utf-8"))
+    items = []
+    for item in document.get("mirrors") or []:
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("status", "")).lower() != "ok":
+            continue
+        base = item.get("base")
+        if not isinstance(base, str) or not base.startswith("http"):
+            continue
+        host = urllib.parse.urlsplit(base).hostname or base
+        try:
+            latency = float(item.get("latency") or 10 ** 9)
+        except (TypeError, ValueError):
+            latency = 10 ** 9
+        items.append({"host": host, "base": base, "latency": latency})
+    items.sort(key=lambda entry: entry["latency"])
+    return items, document.get("updatedAt")
+
+
+def probe_mirror(base: str, sample_url: str, timeout: float):
+    """探测某个镜像能否正确返回我们的档案。返回 (style, 耗时秒) 或 None。"""
+    for style in ("raw", "github"):
+        wrapped = mirror_wrap(sample_url, base, style)
+        if not wrapped:
+            continue
+        try:
+            body, elapsed = fetch_bytes(wrapped, timeout)
+        except Exception:  # noqa: BLE001（镜像不可用就换下一个）
+            continue
+        if b'"ServerKind"' in body[:4000]:
+            return style, elapsed
+    return None
+
+
+def choose_mirror(mirror_cfg: dict, sample_url: str, previous: dict):
+    """自动选择镜像：按官方测速延迟排序 → 并发探测前 N 个 → 取延迟最低且可用的那个。
+
+    previous 为上一轮选中的镜像（state.json 里的记录），命中时不随便换（延迟在
+    hysteresis 倍数内保持不变），避免每天改 URL 导致所有客户端反复刷新。
+    """
+    timeout = float(mirror_cfg.get("timeout") or 10)
+    pinned = mirror_cfg.get("host")
+    previous = previous if isinstance(previous, dict) else {}
+    prev_base = previous.get("base")
+    prev_style = previous.get("style")
+
+    candidates = []
+    list_error = None
+    try:
+        candidates, updated_at = fetch_mirror_candidates(
+            mirror_cfg.get("list_url") or MIRROR_LIST_URL, timeout
+        )
+    except Exception as error:  # noqa: BLE001（清单挂了就用上次的或放弃）
+        updated_at = None
+        list_error = error
+
+    if pinned:
+        pinned_host = str(pinned).strip().rstrip("/")
+        base = pinned_host if pinned_host.startswith("http") else f"https://{pinned_host}/"
+        candidates = [entry for entry in candidates if entry["host"] == urllib.parse.urlsplit(base).hostname]
+        if not candidates:
+            candidates = [{"host": urllib.parse.urlsplit(base).hostname or base, "base": base, "latency": 0.0}]
+
+    if not candidates:
+        # 清单拿不到时，仍可继续用上一轮选中的镜像
+        if prev_base:
+            probed = probe_mirror(prev_base, sample_url, timeout)
+            if probed:
+                style, elapsed = probed
+                return {
+                    "host": previous.get("host") or urllib.parse.urlsplit(prev_base).hostname,
+                    "base": prev_base,
+                    "style": style,
+                    "latency": previous.get("latency"),
+                    "elapsed": elapsed,
+                    "reason": "镜像清单不可用，沿用上次选择",
+                    "updated_at": None,
+                }
+        if list_error is not None:
+            print(f"提示：镜像清单获取失败（{list_error}），本次不启用镜像")
+        return None
+
+    limit = max(int(mirror_cfg.get("probe_candidates") or 10), 1)
+    pool = candidates[:limit]
+    if prev_base and all(entry["base"] != prev_base for entry in pool):
+        if prev_style is not None or prev_base:
+            pool = pool[:-1] + [{"host": previous.get("host"), "base": prev_base,
+                                 "latency": previous.get("latency") or 10 ** 9}]
+
+    results = []
+    with ThreadPoolExecutor(max_workers=min(5, len(pool))) as executor:
+        futures = {
+            executor.submit(probe_mirror, entry["base"], sample_url, timeout): entry
+            for entry in pool
+        }
+        for future in as_completed(futures):
+            entry = futures[future]
+            try:
+                probed = future.result()
+            except Exception:  # noqa: BLE001
+                probed = None
+            if probed:
+                style, elapsed = probed
+                results.append({**entry, "style": style, "elapsed": elapsed})
+
+    if not results:
+        if prev_base:
+            probed = probe_mirror(prev_base, sample_url, timeout)
+            if probed:
+                style, elapsed = probed
+                return {
+                    "host": previous.get("host"),
+                    "base": prev_base,
+                    "style": style,
+                    "latency": previous.get("latency"),
+                    "elapsed": elapsed,
+                    "reason": "探测全部失败，沿用上次选择",
+                    "updated_at": updated_at,
+                }
+        print("提示：所有镜像探测均失败，本次回退到 GitHub 直连地址")
+        return None
+
+    results.sort(key=lambda entry: (entry["latency"], entry["elapsed"]))
+    best = results[0]
+
+    chosen = best
+    for entry in results:
+        if prev_base and entry["base"] == prev_base:
+            factor = float(mirror_cfg.get("hysteresis") or 1.5)
+            if entry["latency"] <= best["latency"] * factor:
+                chosen = entry
+                chosen["reason"] = f"保持上次选择（延迟未超过最优的 {factor:g} 倍）"
+            break
+    chosen.setdefault("reason", "按测速延迟选择最优镜像")
+
+    other_probed = [
+        f"{entry['host']} {entry['latency']:.0f}ms/{entry['elapsed'] * 1000:.0f}ms"
+        for entry in results
+        if entry is not chosen
+    ]
+    return {
+        "host": chosen["host"],
+        "base": chosen["base"],
+        "style": chosen["style"],
+        "latency": chosen["latency"],
+        "elapsed": chosen["elapsed"],
+        "reason": chosen.get("reason"),
+        "updated_at": updated_at,
+        "probed": other_probed,
+    }
 
 
 def resolve_source_url(base_url: str, source_file: str) -> str:
@@ -549,6 +778,8 @@ def main() -> int:
     parser.add_argument("--base-url", default=None, help="直接指定档案托管根地址（覆盖 --repo/--branch）")
     parser.add_argument("--force-bump", action="store_true", help="内容未变化时也递增版本号")
     parser.add_argument("--dry-run", action="store_true", help="只计算并打印摘要，不写任何文件")
+    parser.add_argument("--no-mirror", action="store_true", help="不启用镜像加速，清单直接指向 raw.githubusercontent.com")
+    parser.add_argument("--mirror-host", default=None, help="固定使用某个镜像主机名（如 ghfast.top），跳过自动选择")
     args = parser.parse_args()
 
     cfg = load_config()
@@ -559,6 +790,40 @@ def main() -> int:
     branch = args.branch or os.environ.get("GITHUB_REF_NAME") or "main"
     base_url = args.base_url or f"https://raw.githubusercontent.com/{repo}/{branch}"
     print(f"托管根地址：{base_url}")
+
+    # ── 镜像加速（默认开启）──
+    # 国内多数教室网络直连 raw.githubusercontent.com 不通，清单里改成「镜像+原始地址」的拼接形式；
+    # 镜像清单取自 git.hiwiki.org 的测速数据，每 12 小时更新，这里挑延迟最低且实测可用的一家。
+    mirror_cfg = dict(cfg.get("mirror") or {})
+    if args.no_mirror:
+        mirror_cfg["enabled"] = False
+    if args.mirror_host:
+        mirror_cfg["enabled"] = True
+        mirror_cfg["host"] = args.mirror_host
+    state_before = load_json_file(STATE_PATH) or {}
+    mirror_info = None
+    if base_url.startswith(RAW_HOST_PREFIX) and mirror_cfg.get("enabled", True):
+        mirror_info = choose_mirror(mirror_cfg, f"{base_url}/manifest.json", state_before.get("mirror"))
+    elif not base_url.startswith(RAW_HOST_PREFIX):
+        print("提示：托管根地址不是 GitHub raw，跳过镜像加速")
+
+    def publish(url: str) -> str:
+        """把 GitHub 原始地址按当前镜像拼接成客户端可访问的地址。"""
+        if mirror_info and url.startswith(RAW_HOST_PREFIX):
+            wrapped = mirror_wrap(url, mirror_info["base"], mirror_info["style"])
+            if wrapped:
+                return wrapped
+        return url
+
+    if mirror_info:
+        print(
+            f"镜像加速：{mirror_info['host']}（清单延迟 {float(mirror_info.get('latency') or 0):.0f} ms，"
+            f"实测 {mirror_info['elapsed'] * 1000:.0f} ms，路径形式 {mirror_info['style']}）"
+        )
+        if mirror_info.get("reason"):
+            print(f"  选择依据：{mirror_info['reason']}")
+        for extra in mirror_info.get("probed") or []:
+            print(f"  其他候选：{extra}")
 
     # ── 抓取与解析 ──
     data = fetch_source(cfg["source_url"], args.source_file)
@@ -674,12 +939,13 @@ def main() -> int:
     classplans_hash = sha256_text(classplans_bundle_hash + timelayouts_hash)
 
     urls = {
-        "classplans": f"{base_url}/classplans/{{id}}.json",
-        "timelayouts": f"{base_url}/timelayouts.json",
-        "subjects": f"{base_url}/subjects/{{id}}.json",
-        "policy": f"{base_url}/policy.json",
-        "settings": f"{base_url}/settings/default-settings.json",
+        "classplans": publish(f"{base_url}/classplans/{{id}}.json"),
+        "timelayouts": publish(f"{base_url}/timelayouts.json"),
+        "subjects": publish(f"{base_url}/subjects/{{id}}.json"),
+        "policy": publish(f"{base_url}/policy.json"),
+        "settings": publish(f"{base_url}/settings/default-settings.json"),
     }
+    manifest_url = publish(f"{base_url}/manifest.json")
 
     # ── 默认设置源（下发「学期首日」）──
     # 只有相对全新（未完成欢迎向导）的实例才会应用该设置源，且是整体替换 Settings.json；
@@ -792,7 +1058,7 @@ def main() -> int:
                 "ManagementServerKind": 0,
                 "ManagementServer": "",
                 "ManagementServerGrpc": "",
-                "ManifestUrlTemplate": f"{base_url}/manifest.json",
+                "ManifestUrlTemplate": manifest_url,
                 "ClassIdentity": cid,
             }
             dump_json(preset, os.path.join(REPO_ROOT, "presets", f"ManagementPreset-{cid}.json"))
@@ -839,6 +1105,13 @@ def main() -> int:
         }
         if emit_settings:
             new_state["settings"] = {"hash": settings_hash, "version": versions["settings"], "url": urls["settings"]}
+        if mirror_info:
+            # 只记录「选了谁」，不含测速时间戳，避免每次构建都产生无意义的 diff
+            new_state["mirror"] = {
+                "host": mirror_info["host"],
+                "base": mirror_info["base"],
+                "style": mirror_info["style"],
+            }
         dump_json(new_state, STATE_PATH)
 
         # 源数据快照（供人工 diff 审查）
@@ -921,7 +1194,7 @@ def main() -> int:
             "",
             f"变更班级：{changed_class_text}",
             "",
-            f"托管地址：{base_url}/manifest.json",
+            f"托管地址：{manifest_url}",
         ]
         with open(LAST_UPDATE_MD, "w", encoding="utf-8", newline="\n") as f:
             f.write("\n".join(md) + "\n")
@@ -934,6 +1207,10 @@ def main() -> int:
     if emit_settings:
         print(f"  默认设置: v{versions['settings']}（{'更新' if changes['settings'] else '未变化'}，仅对全新机器生效）")
     print(f"  策略: v{policy_version}（{'更新' if policy_changed else '未变化'}，按内容哈希自动维护）")
+    if mirror_info:
+        print(f"  镜像：{mirror_info['host']}（{mirror_info['style']} 形式）")
+    else:
+        print("  镜像：未启用（客户端直连 raw.githubusercontent.com）")
     if changed_classes:
         print(f"变更班级：{'、'.join(f'高一{int(c)}班' for c in changed_classes)}")
     else:

@@ -3,6 +3,15 @@
   "source_url": "https://duanjr.site/tools/class_schedule/api/schedule?file=result_actual.json",
   "organization_name": "2026级高一年级",
   "core_version": "2.0.0.0",
+  "// mirror": "镜像加速。国内教室网络基本连不上 raw.githubusercontent.com，开着会自动从 https://git.hiwiki.org/zh-CN/mirrors 的测速清单里挑延迟最低且实测可用的镜像，把清单地址改写成「镜像 + 原始地址」。host 固定某个镜像（如 \"ghfast.top\"）可跳过自动选择；enabled=false 等价于 --no-mirror，清单直连 GitHub。",
+  "mirror": {
+    "enabled": true,
+    "host": null,
+    "list_url": "https://git.hiwiki.org/data/mirror-speeds.json",
+    "timeout": 10,
+    "probe_candidates": 10,
+    "hysteresis": 1.5
+  },
   "// generate_roster": "是否生成 docs/班级对照表.md。源数据 teachers 元数据（班主任/选科组合）与当前课表不一致，源站页面也不展示，故默认关闭；确需生成时改为 true。",
   "generate_roster": false,
   "exclude_slot_patterns": ["看班"],

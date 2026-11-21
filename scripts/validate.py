@@ -30,8 +30,14 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
 TIME_RE = re.compile(r"^\d{2,3}:\d{2}:\d{2}$")
 URL_ID_TEMPLATE_RE = re.compile(r"\{id\}")
+# 源地址根：可选的镜像前缀 + GitHub raw 的 owner/repo/branch
+URL_ROOT_RE = re.compile(
+    r"^(?P<prefix>https://[^/\s]+/)?(?P<raw>https://raw\.githubusercontent\.com/[^/\s]+/[^/\s]+/[^/\s]+)/"
+)
 
 # ClassIsland 内置课表群 GUID（ClassPlanGroup.cs）
+SOURCE_KEYS = ("ClassPlanSource", "TimeLayoutSource", "SubjectsSource", "DefaultSettingsSource", "PolicySource")
+
 GLOBAL_GROUP_GUID = "00000000-0000-0000-0000-000000000000"   # 全局课表群（Guid.Empty）
 DEFAULT_GROUP_GUID = "acaf4ef0-e261-4262-b941-34ea93cb4369"  # 默认课表群
 
@@ -81,6 +87,7 @@ def check_reversion_string(container: str, entry) -> None:
 def main() -> int:
     # ── manifest.json ──
     manifest = load("manifest.json")
+    state_doc = load("data/state.json")
     if manifest is not None:
         if manifest.get("ServerKind") != 0:
             error(f"manifest.json: ServerKind 应为 0（静态托管），实际为 {manifest.get('ServerKind')!r}")
@@ -104,6 +111,37 @@ def main() -> int:
         if isinstance(tls.get("Value"), str) and URL_ID_TEMPLATE_RE.search(tls["Value"]):
             warning("manifest.json.TimeLayoutSource.Value 含有 {id} 模板：每班独立时间表通常没有必要，除非确有需求")
 
+        # ── 镜像一致性 ──
+        roots = set()
+        prefixes = set()
+        for key in SOURCE_KEYS:
+            value = (manifest.get(key) or {}).get("Value")
+            if not isinstance(value, str):
+                continue
+            match = URL_ROOT_RE.match(value)
+            if not match:
+                error(
+                    f"manifest.json.{key}.Value 不是「GitHub raw 地址」或「镜像前缀 + GitHub raw 地址」：{value!r}"
+                )
+                continue
+            prefix = match.group("prefix") or ""
+            roots.add(prefix + match.group("raw"))
+            prefixes.add(prefix)
+        if len(roots) > 1:
+            error(f"manifest.json: 各源地址根不一致：{sorted(roots)}")
+        if len(prefixes) > 1:
+            error(f"manifest.json: 各源使用了不同的镜像前缀：{sorted(p for p in prefixes if p)}")
+        if roots:
+            root = next(iter(roots))
+            print(f"  源地址根：{root}")
+            recorded = ((state_doc or {}).get("mirror") or {}) if isinstance(state_doc, dict) else {}
+            recorded_base = str(recorded.get("base") or "")
+            if recorded_base and not root.startswith(recorded_base):
+                error(f"manifest.json: 源地址根 {root!r} 与 data/state.json 记录的镜像 {recorded_base!r} 不一致")
+            if recorded and recorded.get("style") not in ("raw", "github"):
+                error(f"data/state.json.mirror.style 非法：{recorded.get('style')!r}")
+            if prefix and not recorded_base:
+                warning("manifest.json: 使用了镜像前缀，但 data/state.json 未记录镜像，可能是手工改过清单")
 
     # ── timelayouts.json ──
     timelayouts_profile = load("timelayouts.json")

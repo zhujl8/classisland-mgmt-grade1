@@ -1,8 +1,10 @@
 name: 更新高一课程表
 
-# 手动触发：仓库 Actions 页 → 「更新高一课程表」→ Run workflow
-# 自动定时：取消下方 on.schedule 段的注释并按需修改（GitHub cron 使用 UTC 时间）
+# 定时：每天 06:30（北京时间）自动跑一次，即 UTC 22:30
+# 手动：仓库 Actions 页 → 「更新高一课程表」→ Run workflow
 on:
+  schedule:
+    - cron: "30 22 * * *"   # GitHub cron 用 UTC：22:30 UTC = 次日 06:30 北京时间
   workflow_dispatch:
     inputs:
       source_file:
@@ -15,12 +17,8 @@ on:
         required: false
         default: false
 
-# 需要自动更新时，改为：
-# on:
-#   schedule:
-#     - cron: "30 22 * * 0"   # 每周日 22:30 UTC = 北京时间周一 06:30
-#   workflow_dispatch:
-#     inputs: （保持上面 inputs 配置不变，整块复制过来即可）
+# 只想每周跑一次就把 cron 改成 "30 22 * * 0"（每周一 06:30 北京时间）；
+# 想换时间就按 UTC 换算，例如每天 06:00 北京时间 → "0 22 * * *"。
 
 permissions:
   contents: write
