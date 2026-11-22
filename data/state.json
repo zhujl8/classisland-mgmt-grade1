@@ -1,8 +1,8 @@
 {
   "base_url": "https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main",
   "timelayouts": {
-    "hash": "7a3768edc79fff0c15dc20dfe7117566c394e15c7d4cb89f7c8b165c32c04533",
-    "version": 5,
+    "hash": "5ff3f387c485e3f5462febd0ca9c8e74ab3bb40e0273c23e8e7f9a0fadd47711",
+    "version": 6,
     "url": "https://gh-proxy.com/https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/timelayouts.json"
   },
   "subjects": {
@@ -33,8 +33,8 @@
     }
   },
   "classplans": {
-    "hash": "545492b8693713b121e302cccf30109721ccac6cea2f6fca8aba3552b08d6695",
-    "version": 5,
+    "hash": "d9971c030cc9456f309700487b750e73604957b6ea59bd9a739a56984796ef68",
+    "version": 6,
     "url": "https://gh-proxy.com/https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/classplans/{id}.json",
     "files": {
       "1": "8492401467360f5055c3f761026317597b1e6361ad1204cb9742350b82999e4f",

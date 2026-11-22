@@ -4,11 +4,11 @@
   "CoreVersion": "2.0.0.0",
   "ClassPlanSource": {
     "Value": "https://gh-proxy.com/https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/classplans/{id}.json",
-    "Version": 5
+    "Version": 6
   },
   "TimeLayoutSource": {
     "Value": "https://gh-proxy.com/https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/timelayouts.json",
-    "Version": 5
+    "Version": 6
   },
   "SubjectsSource": {
     "Value": "https://gh-proxy.com/https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/subjects/{id}.json",

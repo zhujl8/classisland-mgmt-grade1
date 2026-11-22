@@ -109,11 +109,18 @@ CONFIG_DEFAULTS = {
     # 注意：ClassIsland 只在欢迎向导完成前应用该设置源（全新机器），且是整体替换 Settings.json。
     "emit_default_settings": True,
     "mirror": dict(DEFAULT_MIRROR),
+    # 平常日子「大课间」缩短的分钟数：0=保持源站原始（08:15–08:45），5=08:15–08:40。
+    # 缩短后上午其余节次整体前移相同分钟数，铃声仍是连续的。
+    "morning_big_break_shrink_minutes": 5,
 }
 
 # 「退场课表」的中和桩：不再生成、但仍需留在客户端档案里的课表会被改写为停用桩，
 # 避免"上一次有、这一次没有"的条目在客户端上无限期残留并继续参与当日匹配。
 RETIRED_PREFIX = "（已停用）"
+
+# 课间名称（ClassIsland 时间表里每种间隔都有自己的名字，统一成同一个文案，客户端一眼看得懂）
+BREAK_NAME = "课间休息"
+LUNCH_NAME = "午休"
 
 
 # ─────────────────────────── 工具函数 ───────────────────────────
@@ -549,6 +556,63 @@ def parse_week_cycle(cfg: dict):
     }
 
 
+def shrink_morning_big_break(times, included_indexes, minutes: int):
+    """把上午最大的那个课间缩短 minutes 分钟，其后上午节次整体前移（保持节次时长与其余课间）。
+
+    返回 (新的 times 列表, 说明 dict 或 None)。minutes<=0 时原样返回。
+    """
+    if minutes <= 0:
+        return list(times), None
+    if minutes > 30:
+        raise RuntimeError("morning_big_break_shrink_minutes 过大（>30），课间会被压没，请检查 build-config.json")
+
+    # 先按「≥60 分钟的长间隔」切出上午段（与时间表生成规则一致）
+    split_pos = None
+    previous_end = None
+    for pos, index in enumerate(included_indexes):
+        start, end = parse_hhmm(times[index])
+        if previous_end is not None and minutes_of(start) - minutes_of(previous_end) >= LONG_GAP_MINUTES:
+            split_pos = pos
+        previous_end = end
+    morning_indexes = included_indexes[:split_pos] if split_pos is not None else list(included_indexes)
+
+    # 上午各节次之间的空隙，取最大的那个作为「大课间」
+    gaps = []
+    for pos in range(len(morning_indexes) - 1):
+        _, end = parse_hhmm(times[morning_indexes[pos]])
+        next_start, _ = parse_hhmm(times[morning_indexes[pos + 1]])
+        gap = minutes_of(next_start) - minutes_of(end)
+        if gap > 0:
+            gaps.append((gap, pos, end, next_start))
+    if not gaps:
+        return list(times), None
+    gap, pos, gap_start, gap_end = max(gaps, key=lambda item: item[0])
+
+    new_end = minutes_of(gap_end) - minutes
+    new_gap = minutes_of(gap_end) - minutes_of(gap_start) - minutes
+    if new_gap <= 0:
+        raise RuntimeError(
+            f"morning_big_break_shrink_minutes={minutes} 会把大课间（{gap_start[:5]}–{gap_end[:5]}，{gap} 分钟）压到 {new_gap} 分钟，"
+            "请调小该值。"
+        )
+    if new_gap >= LONG_GAP_MINUTES:
+        raise RuntimeError(
+            f"morning_big_break_shrink_minutes={minutes} 后大课间仍有 {new_gap} 分钟（≥{LONG_GAP_MINUTES}），"
+            "客户端会把它当成午休分割线，课表节数会对不上；请调大该值。"
+        )
+
+    new_times = list(times)
+    for index in morning_indexes[pos + 1:]:
+        start, end = parse_hhmm(times[index])
+        new_times[index] = f"{format_hhmm(minutes_of(start) - minutes)}-{format_hhmm(minutes_of(end) - minutes)}"
+    return new_times, {
+        "start": gap_start,
+        "old_end": gap_end,
+        "new_end": format_hhmm(new_end),
+        "shrink": minutes,
+    }
+
+
 def build_home_friday_times(times, included_indexes, cycle) -> list:
     """构造「回家周周五」使用的时间数组。
 
@@ -658,7 +722,7 @@ def build_time_layout(slots, times, included_indexes) -> dict:
         if previous_end is not None and minutes_of(start) > minutes_of(previous_end):
             gap = minutes_of(start) - minutes_of(previous_end)
             if gap >= LONG_GAP_MINUTES:
-                name = "午休" if crosses_noon(previous_end, start) else "休息"
+                name = LUNCH_NAME if crosses_noon(previous_end, start) else BREAK_NAME
                 layouts.append(
                     {
                         "StartTime": previous_end,
@@ -677,7 +741,7 @@ def build_time_layout(slots, times, included_indexes) -> dict:
                         "TimeType": 1,
                         "IsHideDefault": False,
                         "DefaultClassId": ZERO_GUID,
-                        "BreakName": "课间休息",
+                        "BreakName": BREAK_NAME,
                     }
                 )
         layouts.append(
@@ -898,6 +962,16 @@ def main() -> int:
     print(f"包含节次：{[slots[i] for i in included_indexes]}")
     if excluded:
         print(f"排除节次：{excluded}")
+
+    # ── 平常日子的大课间缩放 ──
+    shrink_minutes = int(cfg.get("morning_big_break_shrink_minutes") or 0)
+    times, big_break = shrink_morning_big_break(times, included_indexes, shrink_minutes)
+    if big_break:
+        print(
+            f"大课间：{big_break['start'][:5]}–{big_break['new_end'][:5]}"
+            f"（原始 {big_break['start'][:5]}–{big_break['old_end'][:5]}，缩短 {big_break['shrink']} 分钟，"
+            "上午其余节次同步前移）"
+        )
 
     # ── 两周轮换 ──
     cycle = parse_week_cycle(cfg)

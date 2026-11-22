@@ -37,6 +37,9 @@ URL_ROOT_RE = re.compile(
 )
 
 # ClassIsland 内置课表群 GUID（ClassPlanGroup.cs）
+BREAK_NAME = "课间休息"
+TIMELAYOUT_MAIN_ID = "3113c9e9-9dcb-530b-83f5-f751022b4d20"
+
 SOURCE_KEYS = ("ClassPlanSource", "TimeLayoutSource", "SubjectsSource", "DefaultSettingsSource", "PolicySource")
 
 GLOBAL_GROUP_GUID = "00000000-0000-0000-0000-000000000000"   # 全局课表群（Guid.Empty）
@@ -217,6 +220,57 @@ def main() -> int:
                             f"timelayouts.json: 回家周周五时间表 {tl_id} 里没有 {parts[0]}–{parts[1]} 的课间"
                             "（build-config.json 已配置 home_week_friday_morning_break，但档案未重建）"
                         )
+
+    # ── 平常日子的大课间缩放 & 课间名称 ──
+    shrink_raw = config.get("morning_big_break_shrink_minutes", 0) if isinstance(config, dict) else 0
+    try:
+        shrink = int(shrink_raw or 0)
+    except (TypeError, ValueError):
+        error(f"build-config.json: morning_big_break_shrink_minutes 应为整数，实际 {shrink_raw!r}")
+        shrink = 0
+    if shrink < 0 or shrink > 30:
+        error(f"build-config.json: morning_big_break_shrink_minutes 超出合理范围（0–30）：{shrink}")
+
+    # 课间（TimeType=1）名称必须统一
+    for tl_id, tl in ((timelayouts_profile or {}).get("TimeLayouts") or {}).items():
+        for index, item in enumerate(tl.get("Layouts") or []):
+            if item.get("TimeType") == 1 and str(item.get("BreakName") or "") != BREAK_NAME:
+                error(
+                    f"timelayouts.json: 时间表 {tl_id} 第 {index + 1} 个课间名称应为「{BREAK_NAME}」，"
+                    f"实际 {item.get('BreakName')!r}"
+                )
+
+    # 大课间应当等于「源站课间长度 - shrink」（shrink=0 时即源站原样），避免改了配置却没重建
+    snapshot = load("data/snapshot/result_actual.json")
+    patterns = [str(p) for p in (config.get("exclude_slot_patterns") or []) if p]
+    if isinstance(snapshot, dict) and isinstance(snapshot.get("times"), list):
+        src_slots = snapshot.get("slots") or []
+        src_times = snapshot["times"]
+        keep = [
+            i for i, name in enumerate(src_slots)
+            if not any(re.search(p, str(name)) for p in patterns)
+        ]
+        if len(keep) >= 2:
+            gap_start = str(src_times[keep[0]]).split("-")[1].strip()
+            if len(gap_start.split(":")) == 2:
+                gap_start += ":00"
+            gap_end = str(src_times[keep[1]]).split("-")[0]
+            end_minutes = int(gap_end.split(":")[0]) * 60 + int(gap_end.split(":")[1])
+            expected_end = end_minutes - shrink
+            wanted = f"{expected_end // 60:02d}:{expected_end % 60:02d}:00"
+            main_tl = ((timelayouts_profile or {}).get("TimeLayouts") or {}).get(TIMELAYOUT_MAIN_ID)
+            if isinstance(main_tl, dict):
+                matched = [
+                    item for item in (main_tl.get("Layouts") or [])
+                    if item.get("TimeType") == 1 and str(item.get("StartTime")) == gap_start
+                ]
+                if not matched:
+                    error(f"timelayouts.json: 常规时间表里找不到 {gap_start[:5]} 开始的大课间")
+                elif str(matched[0].get("EndTime")) != wanted:
+                    error(
+                        f"timelayouts.json: 大课间应为 {gap_start[:5]}–{wanted[:5]}"
+                        f"（源站 {gap_start[:5]}–{gap_end[:5]} 缩短 {shrink} 分钟），实际 {matched[0].get('EndTime')}"
+                    )
 
     # ── subjects/{id}.json（按班级拆分的科目表）──
     subject_files = sorted(

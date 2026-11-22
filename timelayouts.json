@@ -14,55 +14,55 @@
         },
         {
           "StartTime": "08:15:00",
-          "EndTime": "08:45:00",
+          "EndTime": "08:40:00",
           "TimeType": 1,
           "IsHideDefault": false,
           "DefaultClassId": "00000000-0000-0000-0000-000000000000",
           "BreakName": "课间休息"
         },
         {
-          "StartTime": "08:45:00",
-          "EndTime": "09:30:00",
+          "StartTime": "08:40:00",
+          "EndTime": "09:25:00",
           "TimeType": 0,
           "IsHideDefault": false,
           "DefaultClassId": "00000000-0000-0000-0000-000000000000",
           "BreakName": ""
         },
         {
-          "StartTime": "09:30:00",
-          "EndTime": "09:40:00",
+          "StartTime": "09:25:00",
+          "EndTime": "09:35:00",
           "TimeType": 1,
           "IsHideDefault": false,
           "DefaultClassId": "00000000-0000-0000-0000-000000000000",
           "BreakName": "课间休息"
         },
         {
-          "StartTime": "09:40:00",
-          "EndTime": "10:25:00",
+          "StartTime": "09:35:00",
+          "EndTime": "10:20:00",
           "TimeType": 0,
           "IsHideDefault": false,
           "DefaultClassId": "00000000-0000-0000-0000-000000000000",
           "BreakName": ""
         },
         {
-          "StartTime": "10:25:00",
-          "EndTime": "10:35:00",
+          "StartTime": "10:20:00",
+          "EndTime": "10:30:00",
           "TimeType": 1,
           "IsHideDefault": false,
           "DefaultClassId": "00000000-0000-0000-0000-000000000000",
           "BreakName": "课间休息"
         },
         {
-          "StartTime": "10:35:00",
-          "EndTime": "11:20:00",
+          "StartTime": "10:30:00",
+          "EndTime": "11:15:00",
           "TimeType": 0,
           "IsHideDefault": false,
           "DefaultClassId": "00000000-0000-0000-0000-000000000000",
           "BreakName": ""
         },
         {
-          "StartTime": "11:20:00",
-          "EndTime": "11:20:00",
+          "StartTime": "11:15:00",
+          "EndTime": "11:15:00",
           "TimeType": 2,
           "IsHideDefault": false,
           "DefaultClassId": "00000000-0000-0000-0000-000000000000",
