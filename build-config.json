@@ -7,7 +7,7 @@
   "morning_big_break_shrink_minutes": 5,
   "// mirror": "镜像加速。国内教室网络基本连不上 raw.githubusercontent.com，开着会自动从 https://git.hiwiki.org/zh-CN/mirrors 的测速清单里挑延迟最低且实测可用的镜像，把清单地址改写成「镜像 + 原始地址」。host 固定某个镜像（如 \"ghfast.top\"）可跳过自动选择；enabled=false 等价于 --no-mirror，清单直连 GitHub。",
   "mirror": {
-    "enabled": true,
+    "enabled": false,
     "host": null,
     "list_url": "https://git.hiwiki.org/data/mirror-speeds.json",
     "timeout": 10,
