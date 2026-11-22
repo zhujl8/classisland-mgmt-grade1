@@ -22,6 +22,8 @@
     "//": "两周轮换（单双周）。return_week_monday = 返校周的周一（该周周五全天正常）；回家周的周五下午提前：home_week_friday_first_class 上课、home_week_friday_school_over 放学。客户端「设置 → 常规 → 学期开始时间」应等于 return_week_monday 的前一天（周日）。放寒暑假或轮换节奏变化时，更新 return_week_monday 后重新构建；已初始化过的机器仍需人工核对一次该日期。",
     "enabled": true,
     "return_week_monday": "2026-11-23",
+    "// home_week_friday_morning_break": "回家周周五上午缩短课间：第一个长课间由 \"08:15-08:45\" 压到 \"08:15-08:25\"，其后的上午节次整体前移 20 分钟（第 2 节 08:25 开始、上午 11:00 结束）。留空或删除则与平常日子一致。",
+    "home_week_friday_morning_break": "08:15-08:25",
     "home_week_friday_first_class": "12:20",
     "home_week_friday_school_over": "14:55"
   }

@@ -195,6 +195,29 @@ def main() -> int:
         else:
             error("build-config.json: week_cycle.home_week_friday_school_over 未设置")
 
+        # 回家周周五上午缩短的课间必须真的落在时间表里（只改配置不重建是最常见的坑）
+        raw_break = str(cycle_cfg.get("home_week_friday_morning_break") or "").strip()
+        if raw_break and home_layout_ids:
+            parts = [item.strip() for item in raw_break.split("-")]
+            if len(parts) != 2:
+                error(f"build-config.json: week_cycle.home_week_friday_morning_break 应形如 \"08:15-08:25\"，实际 {raw_break!r}")
+            else:
+                wanted_start = parts[0] if len(parts[0].split(":")) == 3 else parts[0] + ":00"
+                wanted_end = parts[1] if len(parts[1].split(":")) == 3 else parts[1] + ":00"
+                for tl_id in sorted(home_layout_ids):
+                    layouts = ((timelayouts_profile or {}).get("TimeLayouts") or {}).get(tl_id, {}).get("Layouts") or []
+                    matched = any(
+                        item.get("TimeType") == 1
+                        and str(item.get("StartTime")) == wanted_start
+                        and str(item.get("EndTime")) == wanted_end
+                        for item in layouts
+                    )
+                    if not matched:
+                        error(
+                            f"timelayouts.json: 回家周周五时间表 {tl_id} 里没有 {parts[0]}–{parts[1]} 的课间"
+                            "（build-config.json 已配置 home_week_friday_morning_break，但档案未重建）"
+                        )
+
     # ── subjects/{id}.json（按班级拆分的科目表）──
     subject_files = sorted(
         glob.glob(os.path.join(REPO_ROOT, "subjects", "*.json")),
@@ -477,6 +500,8 @@ def main() -> int:
             f"星期{day}→第{','.join(str(d) for d in divs)}周" for day, divs in sorted(rot_summary)
         )
         print(f"多周轮换：{summary_text}（客户端按「学期开始时间」自动切换）。")
+    if isinstance(cycle_cfg, dict) and str(cycle_cfg.get("home_week_friday_morning_break") or "").strip():
+        print(f"回家周周五上午课间：{cycle_cfg['home_week_friday_morning_break']}（其余日子保持常规课间）。")
     if stub_count:
         print(f"停用课表（含退场中和桩）：{stub_count} 张（IsEnabled=false，不参与当日命中）。")
     for item in warnings:

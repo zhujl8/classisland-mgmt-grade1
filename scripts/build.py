@@ -517,6 +517,22 @@ def parse_week_cycle(cfg: dict):
         )
 
     first_class = parse_time_point(cycle.get("home_week_friday_first_class"), "week_cycle.home_week_friday_first_class")
+
+    # 上午课间缩短：回家周周五要提前放学，把上午第一个长课间压短（下面的节次随之整体前移）
+    morning_break = None
+    raw_break = str(cycle.get("home_week_friday_morning_break") or "").strip()
+    if raw_break:
+        parts = [item.strip() for item in raw_break.split("-")]
+        if len(parts) != 2:
+            raise RuntimeError(
+                f'week_cycle.home_week_friday_morning_break 应形如 "08:15-08:25"，实际为 {raw_break!r}'
+            )
+        break_start = parse_time_point(parts[0], "week_cycle.home_week_friday_morning_break")
+        break_end = parse_time_point(parts[1], "week_cycle.home_week_friday_morning_break")
+        if minutes_of(break_end) - minutes_of(break_start) < 5:
+            raise RuntimeError("week_cycle.home_week_friday_morning_break 的课间长度不足 5 分钟")
+        morning_break = {"start": break_start, "end": break_end}
+
     school_over = parse_time_point(cycle.get("home_week_friday_school_over"), "week_cycle.home_week_friday_school_over")
     if minutes_of(school_over) <= minutes_of(first_class):
         raise RuntimeError("week_cycle：home_week_friday_school_over 应晚于 home_week_friday_first_class")
@@ -528,6 +544,7 @@ def parse_week_cycle(cfg: dict):
         "return_week_monday": anchor,
         "first_class": first_class,
         "school_over": school_over,
+        "morning_break": morning_break,
         "semester_start": semester_start,
     }
 
@@ -555,6 +572,38 @@ def build_home_friday_times(times, included_indexes, cycle) -> list:
             "当前源数据 times 未检测到长间隔；请检查数据源或把 build-config.json 的 week_cycle.enabled 改为 false。"
         )
 
+    new_times = list(times)
+    morning_indexes = included_indexes[:split_pos]
+    morning_break = cycle.get("morning_break")
+    if morning_break:
+        # 找到「以 break_start 结束」的那个上午节次，把它后面的课间压到 break_end，
+        # 其后的上午节次整体等量前移（节次时长、其余课间保持不变）。
+        break_start = morning_break["start"]
+        break_end = morning_break["end"]
+        pos = next(
+            (i for i, index in enumerate(morning_indexes) if parse_hhmm(times[index])[1] == break_start),
+            None,
+        )
+        if pos is None:
+            raise RuntimeError(
+                f"week_cycle.home_week_friday_morning_break 的起点 {break_start[:5]} 不是任何上午节次的结束时间；"
+                f"当前上午作息：{[(times[i]) for i in morning_indexes]}"
+            )
+        if pos == len(morning_indexes) - 1:
+            raise RuntimeError("week_cycle.home_week_friday_morning_break 指向了上午最后一节之后的课间，无法前移后续节次")
+        next_index = morning_indexes[pos + 1]
+        old_next_start, _ = parse_hhmm(times[next_index])
+        delta = minutes_of(old_next_start) - minutes_of(break_end)
+        if delta <= 0:
+            raise RuntimeError(
+                f"week_cycle.home_week_friday_morning_break 的结束时间 {break_end[:5]} 不早于下一节开始时间 {old_next_start[:5]}，"
+                "无需缩短课间（或配置写反了）"
+            )
+        for index in morning_indexes[pos + 1:]:
+            start, end = parse_hhmm(times[index])
+            new_times[index] = f"{format_hhmm(minutes_of(start) - delta)}-{format_hhmm(minutes_of(end) - delta)}"
+        morning_end = minutes_of(parse_hhmm(new_times[morning_indexes[-1]])[1])
+
     afternoon_indexes = included_indexes[split_pos:]
     count = len(afternoon_indexes)
     first_start, first_end = parse_hhmm(times[afternoon_indexes[0]])
@@ -574,7 +623,16 @@ def build_home_friday_times(times, included_indexes, cycle) -> list:
             "请核对源站下午节次时长，或调整 build-config.json 中 week_cycle 的 first_class / school_over。"
         )
 
-    new_times = list(times)
+    if morning_break:
+        # 午休仍是"长间隔"，上午前移后要保证与下午第一节课之间仍 >= LONG_GAP_MINUTES，
+        # 否则客户端的时间表会少一个午休分割线，课表节数也会对不上。
+        if minutes_of(first_class) - morning_end < LONG_GAP_MINUTES:
+            raise RuntimeError(
+                f"回家周周五上午前移后，上午最后一节结束于 {format_hhmm(morning_end)}，"
+                f"距离下午第一节 {first_class[:5]} 不足 {LONG_GAP_MINUTES} 分钟，午休分割线会丢失；"
+                "请调整 home_week_friday_morning_break 或 first_class。"
+            )
+
     cursor = minutes_of(first_class)
     for order, index in enumerate(afternoon_indexes):
         start = cursor
@@ -917,8 +975,12 @@ def main() -> int:
 
     timelayouts_map = {TIME_LAYOUT_ID: {"Name": "高一统一时间表", "Layouts": layouts}}
     if cycle:
+        home_label = f"高一统一时间表 · 回家周周五（{cycle['first_class'][:5]} 上课，{cycle['school_over'][:5]} 放学"
+        if cycle.get("morning_break"):
+            home_label += f"，上午课间 {cycle['morning_break']['start'][:5]}–{cycle['morning_break']['end'][:5]}"
+        home_label += "）"
         timelayouts_map[TIME_LAYOUT_HOME_FRIDAY_ID] = {
-            "Name": f"高一统一时间表 · 回家周周五（{cycle['first_class'][:5]} 上课，{cycle['school_over'][:5]} 放学）",
+            "Name": home_label,
             "Layouts": layouts_home_friday,
         }
     timelayouts_profile = {
