@@ -3,23 +3,23 @@
   "OrganizationName": "2026级高一年级",
   "CoreVersion": "2.0.0.0",
   "ClassPlanSource": {
-    "Value": "https://gh-proxy.com/https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/classplans/{id}.json",
-    "Version": 6
+    "Value": "https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/classplans/{id}.json",
+    "Version": 7
   },
   "TimeLayoutSource": {
-    "Value": "https://gh-proxy.com/https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/timelayouts.json",
-    "Version": 6
+    "Value": "https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/timelayouts.json",
+    "Version": 7
   },
   "SubjectsSource": {
-    "Value": "https://gh-proxy.com/https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/subjects/{id}.json",
-    "Version": 4
+    "Value": "https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/subjects/{id}.json",
+    "Version": 5
   },
   "PolicySource": {
-    "Value": "https://gh-proxy.com/https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/policy.json",
+    "Value": "https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/policy.json",
     "Version": 1
   },
   "DefaultSettingsSource": {
-    "Value": "https://gh-proxy.com/https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/settings/default-settings.json",
-    "Version": 2
+    "Value": "https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/settings/default-settings.json",
+    "Version": 3
   }
 }

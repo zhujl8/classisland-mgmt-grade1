@@ -2,13 +2,13 @@
   "base_url": "https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main",
   "timelayouts": {
     "hash": "5ff3f387c485e3f5462febd0ca9c8e74ab3bb40e0273c23e8e7f9a0fadd47711",
-    "version": 6,
-    "url": "https://gh-proxy.com/https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/timelayouts.json"
+    "version": 7,
+    "url": "https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/timelayouts.json"
   },
   "subjects": {
     "hash": "816a016276db648b861d8c24c0a9510bd524bf5ca282deb35e7fb50c72ac6d84",
-    "version": 4,
-    "url": "https://gh-proxy.com/https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/subjects/{id}.json",
+    "version": 5,
+    "url": "https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/subjects/{id}.json",
     "files": {
       "1": "0784ce2d4d08c6f4fe4db817610e511fcc7e01dde6146b85aa42bc65c44dc8fe",
       "2": "68b38d9d1bd948fc72841f5b3a6467eb3245cb2e3ad89923b6e05cdb346c7154",
@@ -34,8 +34,8 @@
   },
   "classplans": {
     "hash": "d9971c030cc9456f309700487b750e73604957b6ea59bd9a739a56984796ef68",
-    "version": 6,
-    "url": "https://gh-proxy.com/https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/classplans/{id}.json",
+    "version": 7,
+    "url": "https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/classplans/{id}.json",
     "files": {
       "1": "8492401467360f5055c3f761026317597b1e6361ad1204cb9742350b82999e4f",
       "2": "7f6db0927205a6b9fff9b775e72ac0b29391a1d100f689f3101ec78af525e13d",
@@ -65,12 +65,7 @@
   },
   "settings": {
     "hash": "6684c933c31a05869aeec856734d1d3ff32aecb7f5af31ccc27c60c9049f7a80",
-    "version": 2,
-    "url": "https://gh-proxy.com/https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/settings/default-settings.json"
-  },
-  "mirror": {
-    "host": "gh-proxy.com",
-    "base": "https://gh-proxy.com/",
-    "style": "raw"
+    "version": 3,
+    "url": "https://raw.githubusercontent.com/zhujl8/classisland-mgmt-grade1/main/settings/default-settings.json"
   }
 }
